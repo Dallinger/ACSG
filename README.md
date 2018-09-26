@@ -1,0 +1,1 @@
+# Adversarial collective sensing game
