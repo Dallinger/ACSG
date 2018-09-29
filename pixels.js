@@ -29,6 +29,7 @@ function Pixels (data, opts) {
   var height = opts.rows * opts.size + (opts.rows + 1) * opts.padding
 
   var canvas = document.createElement('canvas')
+  canvas.setAttribute('id', 'grid')
   canvas.width = width
   canvas.height = height
   if (opts.root) opts.root.appendChild(canvas)
