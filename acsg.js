@@ -160,6 +160,18 @@ function ACSG (opts, callback) {
     }
   }
 
+  Player.prototype.consume = function (t) {
+    for (var i = 0; i < food.length; i++) {
+      if (arraysEqual(this.position, food[i].position)) {
+        food.splice(i, 1)
+        spawnFood()
+        this.score++
+        updateScoreboard()
+        break
+      }
+    }
+  }
+
   if (opts.INCLUDE_HUMAN) {
     // Create the ego player.
     players.push(
@@ -210,7 +222,7 @@ function ACSG (opts, callback) {
     spawnFood()
   }
 
-  function spawnFood (timestamp) {
+  function spawnFood () {
     pos = randomPosition()
     food.push(
       new Food({
@@ -219,13 +231,6 @@ function ACSG (opts, callback) {
         color: GREEN
       }),
     )
-    self.events.push({
-      'type': 'spawn_food',
-      'timestamp': timestamp,
-      'details': {
-        'position': pos
-      }
-    })
   }
 
   function updateScoreboard () {
@@ -250,16 +255,6 @@ function ACSG (opts, callback) {
     lastIdx = -1
     lastTimestamp = 0
 
-    // Record the starting state.
-    {
-      self.events.push({
-        'type': 'state',
-        'timestamp': start,
-        'players': players,
-        'food': food
-      })
-    }
-
     completed = false
     pixels.frame(function () {
       now = Date.now()
@@ -272,46 +267,16 @@ function ACSG (opts, callback) {
         lastTimestamp = motionTimestamps[lastIdx]
         currentBot = players[whichBotMoves[lastIdx]]
         currentBot.move()
-        for (var i = 0; i < food.length; i++) {
-          if (arraysEqual(currentBot.position, food[i].position)) {
-            food.splice(i, 1)
-            spawnFood(now)
-            self.events.push({
-              'type': 'consumption',
-              'timestamp': now,
-              'details': {
-                'player': j,
-                'position': currentBot.position
-              }
-            })
-            currentBot.score++
-            updateScoreboard()
-            break
-          }
-        }
+        currentBot.consume()
       }
 
       // Move the human to reflect all moves registered before lastTimestamp.
       if (opts.INCLUDE_HUMAN) {
         while (scheduledHumanMoves.length > 0) {
-          players[0].move(scheduledHumanMoves.shift())
-          for (var i = 0; i < food.length; i++) {
-            if (arraysEqual(players[0].position, food[i].position)) {
-              food.splice(i, 1)
-              spawnFood(now)
-              self.events.push({
-                'type': 'consumption',
-                'timestamp': now,
-                'details': {
-                  'player': j,
-                  'position': players[0].position
-                }
-              })
-              players[0].score++
-              updateScoreboard()
-              break
-            }
-          }
+          nextMove = scheduledHumanMoves.shift()
+          players[0].move(nextMove)
+          self.events.push([elapsedTime, nextMove])
+          players[0].consume()
         }
       }
 
@@ -355,7 +320,6 @@ function ACSG (opts, callback) {
       if (lastIdx < whichBotMoves.length) {
         pixels.update(data)
       } else if (!completed) {
-        console.log(JSON.stringify(self.events).length)
         completed = true
         callback()
       }
