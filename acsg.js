@@ -137,10 +137,16 @@ function ACSG (g) {
     }
     config = config || {}
     this.id = config.id || players.length
-    this.position = config.position || randomPosition(),
-    this.color = config.color || colors[Math.floor(Math.random() * colors.length)],
+    this.position = config.position || randomPosition()
+    this.color = config.color || colors[Math.floor(Math.random() * colors.length)]
     this.score = config.score || 0
     this.bot = config.bot || false
+    this.history = {
+      'positions': [],
+      'timestamps': []
+    }
+    this.history.positions.push(this.position)
+    this.history.timestamps.push(0)
     return this
   }
 
@@ -206,6 +212,7 @@ function ACSG (g) {
     if (opts.BOT_STRATEGY == 'random') {
       direction = this.strategy.random()
     }
+    botActions.push(direction)
     Player.prototype.move.call(this, direction)
   }
 
@@ -256,6 +263,7 @@ function ACSG (g) {
 
     // Pregenerate bot motion timings, sans direction.
     botActionTimestamps = []
+    botActions = []
     whichBotMoves = []
     t = 0
     humanOffset = opts.INCLUDE_HUMAN ? 1 : 0
@@ -301,11 +309,15 @@ function ACSG (g) {
           currentBot = players[whichBotMoves[lastBotActionIdx]]
           currentBot.move()
           currentBot.consume()
+          currentBot.history.positions.push(currentBot.position)
+          currentBot.history.timestamps.push(nextBotT)
         } else {
           // Carry out human action.
           lastHumanActionIdx += 1
           players[0].move(actions[lastHumanActionIdx])
           players[0].consume()
+          players[0].history.positions.push(currentBot.position)
+          players[0].history.timestamps.push(nextHumanT)
         }
       }
 
