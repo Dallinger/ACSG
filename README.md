@@ -1,8 +1,33 @@
 # Adversarial collective sensing game
 
-The adversarial collective sensing game is implemented in JavaScript
-and must be compiled to create bundle.js
-before being served by a web server.
+The adversarial collective-sensing game is implemented in JavaScript and can be installed via npm:
+
+```
+npm install acsg
+```
+
+To instantiate and run a game:
+
+```
+var ACSG = require('acsg')
+
+game = ACSG({
+  INCLUDE_HUMAN: true,
+  NUM_PLAYERS: 3,
+  DURATION: 60,
+  ROWS: 25,
+  COLUMNS: 25,
+  NUM_FOOD: 8,
+  VISIBILITY: 500,
+  BOT_MOTION_RATE: 4,
+  BLOCK_SIZE: 12,
+  BLOCK_PADDING: 1
+},
+function () { console.log('Finished.') })
+
+game.run()
+
+```
 
 ## Installing dev tools
 
