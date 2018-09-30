@@ -7,36 +7,51 @@ var mousetrap = require('mousetrap')
 var gaussian = require('gaussian')
 var Rands = require('rands')
 var seedrandom = require('seedrandom')
+const uuidv4 = require('uuid/v4')
 
-function ACSG (opts) {
-  if (!(this instanceof ACSG)) return new ACSG(opts)
+function ACSG (g) {
+  if (!(this instanceof ACSG)) return new ACSG(g)
   var self = this
-  opts = opts || {}
-  opts.NUM_PLAYERS = opts.NUM_PLAYERS || 10
-  opts.INCLUDE_HUMAN = opts.INCLUDE_HUMAN || false
-  opts.DURATION = opts.DURATION || 120
-  opts.ROWS = opts.ROWS || 25
-  opts.COLUMNS = opts.COLUMNS || 25
-  opts.NUM_FOOD = opts.NUM_FOOD || 5
-  opts.VISIBILITY = opts.VISIBILITY || 500
-  opts.BOT_MOTION_RATE = opts.BOT_MOTION_RATE || 8
-  opts.BLOCK_SIZE = opts.BLOCK_SIZE || 15
-  opts.BLOCK_PADDING = opts.BLOCK_PADDING || 1
-  opts.SEED = opts.SEED || Date.now()
-  opts.BOT_STRATEGY = opts.BOT_STRATEGY || 'random'
+
+  // Check if this is a new game or a replay.
+  if (g.id) {          // A replay.
+    this.UUID = g.id
+    actions = g.data.actions
+    actionTimestamps = g.data.timestamps
+    opts = g.config
+    replay = true
+  } else {             // A new game.
+    opts = g.config || {}
+    opts.NUM_PLAYERS = opts.NUM_PLAYERS || 10
+    opts.INCLUDE_HUMAN = opts.INCLUDE_HUMAN || false
+    opts.DURATION = opts.DURATION || 120
+    opts.ROWS = opts.ROWS || 25
+    opts.COLUMNS = opts.COLUMNS || 25
+    opts.NUM_FOOD = opts.NUM_FOOD || 5
+    opts.VISIBILITY = opts.VISIBILITY || 500
+    opts.BOT_MOTION_RATE = opts.BOT_MOTION_RATE || 8
+    opts.BLOCK_SIZE = opts.BLOCK_SIZE || 15
+    opts.BLOCK_PADDING = opts.BLOCK_PADDING || 1
+    opts.SEED = opts.SEED || performance.now()
+    opts.BOT_STRATEGY = opts.BOT_STRATEGY || 'random'
+    this.UUID = uuidv4()
+    replay = false
+    actions = []
+    actionTimestamps = []
+  }
 
   // Seed event RNG.
   Math.seedrandom(opts.SEED)
   var r = new Rands()
 
   // Seed background animation RNG.
-  var backgroundRngFunc = seedrandom(Date.now())
+  var backgroundRngFunc = seedrandom(performance.now())
   var rBackground = new Rands(backgroundRngFunc)
 
   if (opts.INCLUDE_HUMAN) {
-    opts._NUM_BOTS = opts.NUM_PLAYERS - 1
+    this._NUM_BOTS = opts.NUM_PLAYERS - 1
   } else {
-    opts._NUM_BOTS = opts.NUM_PLAYERS
+    this._NUM_BOTS = opts.NUM_PLAYERS
   }
 
   BLUE = [0.50, 0.86, 1.00]
@@ -50,8 +65,6 @@ function ACSG (opts) {
 
   food = []
   players = []
-  scheduledHumanMoves = []
-  self.events = []
   gameOver = false
 
   var data = []
@@ -75,7 +88,11 @@ function ACSG (opts) {
 
   this.serialize = function () {
     return JSON.stringify({
-      'events': this.events,
+      'id': this.UUID,
+      'data': {
+        'actions': actions,
+        'timestamps': actionTimestamps
+      },
       'config': opts
     })
   }
@@ -114,16 +131,16 @@ function ACSG (opts) {
     return !hasPlayer(position) && !hasFood(position)
   }
 
-  Player = function (settings) {
+  Player = function (config) {
     if (!(this instanceof Player)) {
       return new Player()
     }
-    settings = settings || {}
-    this.id = settings.id || players.length
-    this.position = settings.position || randomPosition(),
-    this.color = settings.color || colors[Math.floor(Math.random() * colors.length)],
-    this.score = settings.score || 0
-    this.bot = settings.bot || false
+    config = config || {}
+    this.id = config.id || players.length
+    this.position = config.position || randomPosition(),
+    this.color = config.color || colors[Math.floor(Math.random() * colors.length)],
+    this.score = config.score || 0
+    this.bot = config.bot || false
     return this
   }
 
@@ -178,8 +195,8 @@ function ACSG (opts) {
   // Bots.
   //
 
-  Bot = function (settings) {
-    Player.call(this, settings)
+  Bot = function (config) {
+    Player.call(this, config)
     this.bot = true
   }
 
@@ -195,9 +212,8 @@ function ACSG (opts) {
   Bot.prototype.strategy = {}
 
   Bot.prototype.strategy.random = function () {
-    actions = ['up', 'down', 'left', 'right']
-    direction = actions[Math.floor(Math.random() * actions.length)]
-    return direction
+    dirs = ['up', 'down', 'left', 'right']
+    return dirs[Math.floor(Math.random() * dirs.length)]
   }
 
   // Create the human.
@@ -206,19 +222,19 @@ function ACSG (opts) {
   }
 
   // Create the bots.
-  for (var i = 0; i < opts._NUM_BOTS; i++) {
+  for (var i = 0; i < this._NUM_BOTS; i++) {
     players.push(new Bot())
   }
 
   ego = players[0]
 
-  Food = function (settings) {
+  Food = function (config) {
     if (!(this instanceof Food)) {
       return new Food()
     }
-    settings = settings || {}
-    this.position = settings.position || randomPosition()
-    this.color = settings.color || GREEN
+    config = config || {}
+    this.position = config.position || randomPosition()
+    this.color = config.color || GREEN
     return this
   }
 
@@ -235,47 +251,60 @@ function ACSG (opts) {
   }
 
   this.run = function (callback) {
-    start = Date.now()
+    callback = callback || function () { console.log('Game finished.') }
+    start = performance.now()
 
-    // Pregenerate bot motion events, sans direction.
-    motionTimestamps = []
+    // Pregenerate bot motion timings, sans direction.
+    botActionTimestamps = []
     whichBotMoves = []
     t = 0
     humanOffset = opts.INCLUDE_HUMAN ? 1 : 0
     while (true) {
-      waitTime = r.exponential(opts.BOT_MOTION_RATE * opts._NUM_BOTS)
+      waitTime = r.exponential(opts.BOT_MOTION_RATE * this._NUM_BOTS)
       if (t + waitTime > opts.DURATION) {
         break
       }
       t += waitTime
-      motionTimestamps.push(t)
-      idx = Math.floor(Math.random() * opts._NUM_BOTS) + humanOffset
+      botActionTimestamps.push(t)
+      idx = Math.floor(Math.random() * this._NUM_BOTS) + humanOffset
       whichBotMoves.push(idx)
     }
-    lastIdx = -1
-    lastTimestamp = 0
+    lastBotActionIdx = -1
+    lastHumanActionIdx = -1
+    lastBotActionTimestamp = 0
+    lastHumanActionTimestamp = 0
 
     completed = false
     pixels.frame(function () {
-      now = Date.now()
+      elapsedTime = (performance.now() - start) / 1000
 
-      elapsedTime = (now - start) / 1000
-
-      // Move the bots to reflect the last state before elapsedTime.
-      while (motionTimestamps[lastIdx + 1] < elapsedTime) {
-        lastIdx += 1
-        lastTimestamp = motionTimestamps[lastIdx]
-        currentBot = players[whichBotMoves[lastIdx]]
-        currentBot.move()
-        currentBot.consume()
+      // If original game w/ human, register all moves.
+      if (opts.INCLUDE_HUMAN && !replay) {
+        numActionsToDo = actions.length - actionTimestamps.length
+        for (var i = 0; i < numActionsToDo; i++) {
+          actionTimestamps.push(elapsedTime)
+        }
       }
 
-      // Move the human to reflect all moves registered before lastTimestamp.
-      if (opts.INCLUDE_HUMAN) {
-        while (scheduledHumanMoves.length > 0) {
-          nextMove = scheduledHumanMoves.shift()
-          players[0].move(nextMove)
-          self.events.push([elapsedTime, nextMove])
+      // Execute all unexecuted actions up to elapsedTime.
+      while (true) {
+        nextBotT = botActionTimestamps[lastBotActionIdx + 1] || Infinity
+        nextHumanT = actionTimestamps[lastHumanActionIdx + 1] || Infinity
+
+        if (nextBotT > elapsedTime && nextHumanT > elapsedTime) {
+          break
+        }
+
+        if (nextBotT <= nextHumanT) {  // Break ties in favor of bots.
+          // Carry out bot action.
+          lastBotActionIdx += 1
+          currentBot = players[whichBotMoves[lastBotActionIdx]]
+          currentBot.move()
+          currentBot.consume()
+        } else {
+          // Carry out human action.
+          lastHumanActionIdx += 1
+          players[0].move(actions[lastHumanActionIdx])
           players[0].consume()
         }
       }
@@ -316,7 +345,7 @@ function ACSG (opts) {
         }
       }
 
-      if (lastIdx < whichBotMoves.length - 1) {
+      if (lastBotActionIdx < whichBotMoves.length - 1) {
         pixels.update(data)
       } else if (!gameOver) {
         gameOver = true
@@ -334,7 +363,7 @@ function ACSG (opts) {
     directions.forEach(function (direction) {
       Mousetrap.bind(direction, function () {
         if (!lock && !gameOver) {
-          scheduledHumanMoves.push(direction)
+          actions.push(direction)
         }
         lock = true
         return false
