@@ -8,12 +8,6 @@ var gaussian = require('gaussian')
 var Rands = require('rands')
 var seedrandom = require('seedrandom')
 
-Math.seedrandom('hello')
-var backgroundRngFunc = seedrandom('background')
-
-var r = new Rands()
-var rBackground = new Rands(backgroundRngFunc)
-
 function ACSG (opts, callback) {
   if (!(this instanceof ACSG)) return new ACSG(opts, callback)
   var self = this
@@ -29,6 +23,15 @@ function ACSG (opts, callback) {
   opts.BOT_MOTION_RATE = opts.BOT_MOTION_RATE || 8
   opts.BLOCK_SIZE = opts.BLOCK_SIZE || 15
   opts.BLOCK_PADDING = opts.BLOCK_PADDING || 1
+  opts.SEED = opts.SEED || Date.now()
+
+  // Seed event RNG.
+  Math.seedrandom(opts.SEED)
+  var r = new Rands()
+
+  // Seed background animation RNG.
+  var backgroundRngFunc = seedrandom(Date.now())
+  var rBackground = new Rands(backgroundRngFunc)
 
   if (opts.INCLUDE_HUMAN) {
     opts._NUM_BOTS = opts.NUM_PLAYERS - 1
