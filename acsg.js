@@ -8,11 +8,10 @@ var gaussian = require('gaussian')
 var Rands = require('rands')
 var seedrandom = require('seedrandom')
 
-function ACSG (opts, callback) {
-  if (!(this instanceof ACSG)) return new ACSG(opts, callback)
+function ACSG (opts) {
+  if (!(this instanceof ACSG)) return new ACSG(opts)
   var self = this
   opts = opts || {}
-  callback = callback || function () { console.log('Done.') }
   opts.NUM_PLAYERS = opts.NUM_PLAYERS || 10
   opts.INCLUDE_HUMAN = opts.INCLUDE_HUMAN || false
   opts.DURATION = opts.DURATION || 120
@@ -24,6 +23,7 @@ function ACSG (opts, callback) {
   opts.BLOCK_SIZE = opts.BLOCK_SIZE || 15
   opts.BLOCK_PADDING = opts.BLOCK_PADDING || 1
   opts.SEED = opts.SEED || Date.now()
+  opts.BOT_STRATEGY = opts.BOT_STRATEGY || 'random'
 
   // Seed event RNG.
   Math.seedrandom(opts.SEED)
@@ -43,7 +43,7 @@ function ACSG (opts, callback) {
   YELLOW = [1.00, 0.86, 0.50]
   GREEN = [0.51, 0.95, 0.61]
 
-  playersColors = [
+  colors = [
     BLUE,
     YELLOW
   ]
@@ -110,25 +110,16 @@ function ACSG (opts, callback) {
     if (!(this instanceof Player)) {
       return new Player()
     }
-    this.id = settings.id
-    this.position = settings.position
-    this.color = settings.color
-    this.motion = settings.motion
-    this.score = settings.score
-    this.bot = settings.bot
+    settings = settings || {}
+    this.id = settings.id || players.length
+    this.position = settings.position || randomPosition(),
+    this.color = settings.color || colors[Math.floor(Math.random() * colors.length)],
+    this.score = settings.score || 0
+    this.bot = settings.bot || false
     return this
   }
 
-  Player.prototype.strategy = function () {
-    actions = ['up', 'down', 'left', 'right']
-    direction = actions[Math.floor(Math.random() * actions.length)]
-    return direction
-  }
-
   Player.prototype.move = function (direction) {
-    if (direction == undefined) {
-      direction = this.strategy()
-    }
     newPosition = this.position.slice()
     switch (direction) {
       case 'up':
@@ -175,38 +166,40 @@ function ACSG (opts, callback) {
     }
   }
 
+  //
+  // Bots.
+  //
+
+  Bot = function (settings) {
+    Player.call(this, settings)
+    this.bot = true
+  }
+
+  Bot.prototype = Object.create(Player.prototype)
+
+  Bot.prototype.move = function () {
+    if (opts.BOT_STRATEGY == 'random') {
+      direction = this.strategy.random()
+    }
+    Player.prototype.move.call(this, direction)
+  }
+
+  Bot.prototype.strategy = {}
+
+  Bot.prototype.strategy.random = function () {
+    actions = ['up', 'down', 'left', 'right']
+    direction = actions[Math.floor(Math.random() * actions.length)]
+    return direction
+  }
+
+  // Create the human.
   if (opts.INCLUDE_HUMAN) {
-    // Create the ego player.
-    players.push(
-      new Player({
-        id: 0,
-        bot: false,
-        position: randomPosition(),
-        color: playersColors[Math.floor(Math.random() * playersColors.length)],
-        motion: {
-          speed: 8,
-          nextMove: null
-        },
-        score: 0
-      }),
-    )
+    players.push(new Player())
   }
 
   // Create the bots.
   for (var i = 0; i < opts._NUM_BOTS; i++) {
-    players.push(
-      new Player({
-        id: 1 + i,
-        bot: true,
-        position: randomPosition(),
-        color: playersColors[Math.floor(Math.random() * playersColors.length)],
-        motion: {
-          speed: 8,
-          nextMove: r.exponential(opts.BOT_MOTION_RATE)
-        },
-        score: 0
-      }),
-    )
+    players.push(new Bot())
   }
 
   ego = players[0]
@@ -215,9 +208,9 @@ function ACSG (opts, callback) {
     if (!(this instanceof Food)) {
       return new Food()
     }
-    this.id = settings.id
-    this.position = settings.position
-    this.color = settings.color
+    settings = settings || {}
+    this.position = settings.position || randomPosition()
+    this.color = settings.color || GREEN
     return this
   }
 
@@ -226,14 +219,7 @@ function ACSG (opts, callback) {
   }
 
   function spawnFood () {
-    pos = randomPosition()
-    food.push(
-      new Food({
-        id: i,
-        position: pos,
-        color: GREEN
-      }),
-    )
+    food.push(new Food())
   }
 
   function updateScoreboard () {
@@ -254,6 +240,9 @@ function ACSG (opts, callback) {
       motionTimestamps.push(t)
       idx = Math.floor(Math.random() * opts._NUM_BOTS) + humanOffset
       whichBotMoves.push(idx)
+      console.log(t)
+      console.log(opts.DURATION)
+      console.log('--')
     }
     lastIdx = -1
     lastTimestamp = 0
@@ -319,12 +308,10 @@ function ACSG (opts, callback) {
         }
       }
 
-      // When game is done, execute callback.
       if (lastIdx < whichBotMoves.length) {
         pixels.update(data)
-      } else if (!completed) {
-        completed = true
-        callback()
+      } else {
+        return 'd'
       }
     })
   }
