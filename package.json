@@ -1,8 +1,8 @@
 {
-  "name": "pixel-grid",
-  "version": "1.0.2",
-  "description": "render a grid of little squares",
-  "main": "pixels.js",
+  "name": "acsg",
+  "version": "0.2",
+  "description": "Run an adversarial collective-sensing game",
+  "main": "acsg.js",
   "scripts": {
     "test": "standard && tape test.js | tap-spec",
     "start": "budo example.js",
@@ -11,23 +11,18 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/freeman-lab/pixel-grid.git"
+    "url": "git+https://github.com/Dallinger/ACSG.git"
   },
   "keywords": [
-    "visualization",
-    "pixels",
-    "webgl",
-    "squares",
-    "table",
-    "matrix",
-    "gl"
+    "game",
+    "collective sensing"
   ],
-  "author": "freeman-lab",
+  "author": "suchow",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/freeman-lab/pixel-grid/issues"
+    "url": "https://github.com/Dallinger/ACSG/issues"
   },
-  "homepage": "https://github.com/freeman-lab/pixel-grid#readme",
+  "homepage": "https://github.com/Dallinger/ACSG",
   "dependencies": {
     "dom-css": "^2.1.0",
     "flatten": "^1.0.2",
