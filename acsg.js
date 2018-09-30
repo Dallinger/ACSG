@@ -142,11 +142,13 @@ function ACSG (g) {
     this.score = config.score || 0
     this.bot = config.bot || false
     this.history = {
+      'actions': [],
       'positions': [],
       'timestamps': []
     }
     this.history.positions.push(this.position)
     this.history.timestamps.push(0)
+    this.history.actions.push(null)
     return this
   }
 
@@ -213,6 +215,7 @@ function ACSG (g) {
       direction = this.strategy.random()
     }
     botActions.push(direction)
+    this.history.actions.push(direction)
     Player.prototype.move.call(this, direction)
   }
 
