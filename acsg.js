@@ -7,7 +7,6 @@ var mousetrap = require('mousetrap')
 var gaussian = require('gaussian')
 var Rands = require('rands')
 var seedrandom = require('seedrandom')
-const performance = require('perf_hooks').performance
 const uuidv4 = require('uuid/v4')
 
 function ACSG (g) {
@@ -55,13 +54,11 @@ function ACSG (g) {
     this._NUM_BOTS = opts.NUM_PLAYERS
   }
 
-  BLUE = [0.50, 0.86, 1.00]
-  YELLOW = [1.00, 0.86, 0.50]
   GREEN = [0.51, 0.95, 0.61]
 
-  colors = [
-    BLUE,
-    YELLOW
+  teamColors = [
+    [0.50, 0.86, 1.00], // Blue
+    [1.00, 0.86, 0.50] // Yellow
   ]
 
   food = []
@@ -139,7 +136,8 @@ function ACSG (g) {
     config = config || {}
     this.id = config.id || players.length
     this.position = config.position || randomPosition()
-    this.color = config.color || colors[Math.floor(Math.random() * colors.length)]
+    this.teamIdx = Math.floor(Math.random() * teamColors.length)
+    this.color = config.color || teamColors[this.teamIdx]
     this.score = config.score || 0
     this.bot = config.bot || false
     this.history = {
