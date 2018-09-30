@@ -234,15 +234,15 @@ function ACSG (opts) {
     whichBotMoves = []
     t = 0
     humanOffset = opts.INCLUDE_HUMAN ? 1 : 0
-    while (t < opts.DURATION) {
+    while (true) {
       waitTime = r.exponential(opts.BOT_MOTION_RATE * opts._NUM_BOTS)
+      if (t + waitTime > opts.DURATION) {
+        break
+      }
       t += waitTime
       motionTimestamps.push(t)
       idx = Math.floor(Math.random() * opts._NUM_BOTS) + humanOffset
       whichBotMoves.push(idx)
-      console.log(t)
-      console.log(opts.DURATION)
-      console.log('--')
     }
     lastIdx = -1
     lastTimestamp = 0
@@ -254,7 +254,7 @@ function ACSG (opts) {
       elapsedTime = (now - start) / 1000
 
       // Move the bots to reflect the last state before elapsedTime.
-      while (lastTimestamp < elapsedTime) {
+      while (motionTimestamps[lastIdx + 1] < elapsedTime) {
         lastIdx += 1
         lastTimestamp = motionTimestamps[lastIdx]
         currentBot = players[whichBotMoves[lastIdx]]
@@ -308,7 +308,7 @@ function ACSG (opts) {
         }
       }
 
-      if (lastIdx < whichBotMoves.length) {
+      if (lastIdx <= whichBotMoves.length) {
         pixels.update(data)
       } else {
         return 'd'
