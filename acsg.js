@@ -52,6 +52,7 @@ function ACSG (opts) {
   players = []
   scheduledHumanMoves = []
   self.events = []
+  gameOver = false
 
   var data = []
   var background = []
@@ -71,6 +72,13 @@ function ACSG (opts) {
     background: [0.1, 0.1, 0.1],
     formatted: true
   })
+
+  this.serialize = function () {
+    return JSON.stringify({
+      'events': this.events,
+      'config': opts
+    })
+  }
 
   function randomPosition () {
     empty = false
@@ -226,7 +234,7 @@ function ACSG (opts) {
     document.getElementById('score').innerHTML = players[0].score
   }
 
-  this.run = function () {
+  this.run = function (callback) {
     start = Date.now()
 
     // Pregenerate bot motion events, sans direction.
@@ -308,10 +316,11 @@ function ACSG (opts) {
         }
       }
 
-      if (lastIdx <= whichBotMoves.length) {
+      if (lastIdx < whichBotMoves.length - 1) {
         pixels.update(data)
-      } else {
-        return 'd'
+      } else if (!gameOver) {
+        gameOver = true
+        callback()
       }
     })
   }
@@ -324,7 +333,7 @@ function ACSG (opts) {
     lock = false
     directions.forEach(function (direction) {
       Mousetrap.bind(direction, function () {
-        if (!lock) {
+        if (!lock && !gameOver) {
           scheduledHumanMoves.push(direction)
         }
         lock = true

@@ -1,18 +1,18 @@
 var ACSG = require('./acsg')
 
 game = ACSG({
+  NUM_PLAYERS: 9,
+  DURATION: 6,
   INCLUDE_HUMAN: true,
-  NUM_PLAYERS: 3,
-  DURATION: 60,
+  BOT_STRATEGY: 'random',
   ROWS: 25,
   COLUMNS: 25,
   NUM_FOOD: 8,
-  VISIBILITY: 500,
+  VISIBILITY: 50,
   BOT_MOTION_RATE: 4,
   BLOCK_SIZE: 12,
   BLOCK_PADDING: 1,
   SEED: '19145822646'
-},
-function () { console.log('Finished.') })
+})
 
-game.run()
+game.run(function () { console.log(game.serialize()) })

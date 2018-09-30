@@ -23,10 +23,9 @@ game = ACSG({
   BLOCK_SIZE: 12,
   BLOCK_PADDING: 1
   SEED: '19145822646',
-},
-function () { console.log('Finished.') })
+})
 
-game.run()
+game.run(function () { console.log(game.serialize()) })
 
 ```
 
@@ -47,8 +46,6 @@ Next run `yarn` to install the dependencies:
 To update bundle.js:
 
     $ yarn run bundle
-
-Note: Updates to the bundle should be committed to version control.
 
 ## Managing dependencies
 
