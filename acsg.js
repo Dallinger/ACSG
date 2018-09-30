@@ -7,6 +7,7 @@ var mousetrap = require('mousetrap')
 var gaussian = require('gaussian')
 var Rands = require('rands')
 var seedrandom = require('seedrandom')
+const performance = require('perf_hooks').performance
 const uuidv4 = require('uuid/v4')
 
 function ACSG (g) {
