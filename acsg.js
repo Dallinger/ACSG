@@ -12,7 +12,7 @@ const uuidv4 = require('uuid/v4')
 function ACSG (g) {
   if (!(this instanceof ACSG)) return new ACSG(g)
   var self = this
-
+//
   // Check if this is a new game or a replay.
   if (g.id) {          // A replay.
     this.UUID = g.id
