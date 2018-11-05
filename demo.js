@@ -1,17 +1,18 @@
 var ACSG = require('./acsg')
-
 game = ACSG({ 'config': {
-  NUM_PLAYERS: 9,
-  DURATION: 6,
+  NUM_PLAYERS: 16,
+  DURATION: 120,
   INCLUDE_HUMAN: true,
-  BOT_STRATEGY: 'random',
-  ROWS: 25,
-  COLUMNS: 25,
+  BOT_STRATEGY: 'flockingBot',
+  ROWS: 45,
+  COLUMNS: 45,
   NUM_FOOD: 8,
   VISIBILITY: 50,
-  BOT_MOTION_RATE: 4,
+  BOT_MOTION_RATE: 8,
   BLOCK_SIZE: 12,
   BLOCK_PADDING: 1,
+  MAT_COND:1,
+  COLOR_COND:1,
   SEED: '19145822646'
 }})
 
