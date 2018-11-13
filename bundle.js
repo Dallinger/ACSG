@@ -226,25 +226,6 @@ function ACSG (g) {
     return dirs[Math.floor(Math.random() * dirs.length)]
   }
 
-  Bot.prototype.nearestFood = function () {
-    Idx = 0
-    bestD = Infinity
-    for (var i = 0; i < food.length; i++) {
-      d = distance(food[i].position[0], food[i].position[1], this.position[0], this.position[1])
-      if (d < bestDistance) {
-        Idx = i
-        bestD = d
-      }
-    }
-    return food[Idx]
-  }
-
-  // Bot.prototype.strategy.greedy = function () {
-  //   nearestFoodIdx = this.nearestFoodIdx()
-  //   if food[nearestFoodIdx].positon
-  //   this.position[0] -
-  // }
-
   // Create the human.
   if (opts.INCLUDE_HUMAN) {
     players.push(new Player())
@@ -277,6 +258,10 @@ function ACSG (g) {
 
   function updateScoreboard () {
     document.getElementById('score').innerHTML = players[0].score
+  }
+
+  function updateClock (t) {
+    document.getElementById('clock').innerHTML = ((t > 0) ? t.toFixed(1) : '0.0')
   }
 
   this.run = function (callback) {
@@ -362,6 +347,9 @@ function ACSG (g) {
         data[(f.position[0]) * opts.COLUMNS + f.position[1]] = f.color
       })
 
+      // Update the clock.
+      updateClock(opts.DURATION - elapsedTime)
+
       // Add the Gaussian mask.
       var g = gaussian(0, Math.pow(opts.VISIBILITY, 2))
       rescaling = 1 / g.pdf(0)
@@ -429,18 +417,18 @@ module.exports = ACSG
 var ACSG = require('./acsg')
 
 game = ACSG({ 'config': {
-  NUM_PLAYERS: 4,
-  DURATION: 60,
+  NUM_PLAYERS: 9,
+  DURATION: 6,
   INCLUDE_HUMAN: true,
   BOT_STRATEGY: 'random',
   ROWS: 25,
   COLUMNS: 25,
   NUM_FOOD: 8,
-  VISIBILITY: 40,
-  BOT_MOTION_RATE: 8,
+  VISIBILITY: 50,
+  BOT_MOTION_RATE: 4,
   BLOCK_SIZE: 12,
   BLOCK_PADDING: 1,
-  SEED: '19145822647'
+  SEED: '19145822646'
 }})
 
 game.run(function () { console.log(game.serialize()) })

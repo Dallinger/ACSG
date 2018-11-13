@@ -259,6 +259,10 @@ function ACSG (g) {
     document.getElementById('score').innerHTML = players[0].score
   }
 
+  function updateClock (t) {
+    document.getElementById('clock').innerHTML = ((t > 0) ? t.toFixed(1) : '0.0')
+  }
+
   this.run = function (callback) {
     callback = callback || function () { console.log('Game finished.') }
     start = performance.now()
@@ -341,6 +345,9 @@ function ACSG (g) {
       food.forEach(function (f) {
         data[(f.position[0]) * opts.COLUMNS + f.position[1]] = f.color
       })
+
+      // Update the clock.
+      updateClock(opts.DURATION - elapsedTime)
 
       // Add the Gaussian mask.
       var g = gaussian(0, Math.pow(opts.VISIBILITY, 2))
