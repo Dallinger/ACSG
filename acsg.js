@@ -63,6 +63,8 @@ function ACSG (g) {
 
   food = []
   players = []
+  this.players = players
+  states = []
   gameOver = false
 
   var data = []
@@ -93,6 +95,30 @@ function ACSG (g) {
       },
       'config': opts
     })
+  }
+
+  this.serialize2 = function () {
+    return JSON.stringify({
+      'id': this.UUID,
+      'data': {
+        'actions': actions,
+        'timestamps': actionTimestamps
+      },
+      'config': opts,
+      'states': states,
+      'players': players,
+      'food': food
+    })
+  }
+
+
+  state = function (t) {
+    s = {
+      'timestamp': t,
+      'players': players,
+      'food': food
+    }
+    return s
   }
 
   function randomPosition () {
@@ -258,6 +284,8 @@ function ACSG (g) {
     callback = callback || function () { console.log('Game finished.') }
     start = performance.now()
 
+    states.push(state(0))
+
     // Pregenerate bot motion timings, sans direction.
     botActionTimestamps = []
     botActions = []
@@ -306,11 +334,13 @@ function ACSG (g) {
           currentBot = players[whichBotMoves[lastBotActionIdx]]
           currentBot.move()
           currentBot.consume()
+          states.push(this.state(nextBotT))
         } else {
           // Carry out human action.
           lastHumanActionIdx += 1
           players[0].move(actions[lastHumanActionIdx])
           players[0].consume()
+          states.push(this.state(nextHumanT))
         }
       }
 
