@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+</head>
+<body>
+  <style>
+    body {
+      background: #f9f9f9;
+      font-family: sans-serif;
+      font-size: 10pt;
+    }
+    #acsg {
+      display: none;
+    }
+    #data {
+      font-family: monospace;
+    }
+  </style>
+  <div id="acsg">
+    <p><code><span id="score">0</span> points, <span id="clock">1</span> s remaining</code></p>
+  </div>
+  <form id="enter-data" action="#">
+  Data:
+  <br/>
+  <textarea id="data" rows="20" cols="80">
+{ "config": {
+  "NUM_PLAYERS": 9,
+  "DURATION": 6,
+  "INCLUDE_HUMAN": true,
+  "BOT_STRATEGY": "random",
+  "ROWS": 25,
+  "COLUMNS": 25,
+  "NUM_FOOD": 8,
+  "VISIBILITY": 50,
+  "BOT_MOTION_RATE": 4,
+  "BLOCK_SIZE": 12,
+  "BLOCK_PADDING": 1,
+  "SEED": "19145822646"
+}}
+</textarea>
+  <br/>
+  <button id="run" value="Run">Run</button>
+</form>
+</body>
+<script src="acsg-dist.js"></script>
+<script>
+  document.getElementById('run').onclick = function () {
+    var config = JSON.parse(document.getElementById("data").value)
+    document.getElementById('enter-data').style.display = 'none'
+    document.getElementById('acsg').style.display = 'block'
+    game = ACSG(config)
+    game.run(function () {
+      game.download()
+    })
+  };
+</script>
+</html>
