@@ -64,6 +64,8 @@ function ACSG (g) {
 
   food = []
   players = []
+  this.players = players
+  states = []
   gameOver = false
 
   var data = []
@@ -94,6 +96,43 @@ function ACSG (g) {
       },
       'config': opts
     })
+  }
+
+  this.serialize2 = function () {
+    return JSON.stringify({
+      'id': this.UUID,
+      'data': {
+        'actions': actions,
+        'timestamps': actionTimestamps
+      },
+      'config': opts,
+      'states': states,
+      'players': players,
+      'food': food
+    })
+  }
+
+  // // Download the serialized game as a JSON file.
+  this.download = function () {
+    var blob = new Blob([this.serialize2()], {type: 'application/json'})
+    var url = URL.createObjectURL(blob)
+    var el = document.createElement('a')
+    el.style.display = 'none'
+    el.id = 'downloadAnchorElem'
+    el.href = url
+    el.download = 'game.json'
+    el.textContent = 'Download backup.json'
+    document.body.appendChild(el)
+    el.click()
+  }
+
+  state = function (t) {
+    s = {
+      'timestamp': t,
+      'players': players,
+      'food': food
+    }
+    return s
   }
 
   function randomPosition () {
@@ -141,14 +180,6 @@ function ACSG (g) {
     this.color = config.color || teamColors[this.teamIdx]
     this.score = config.score || 0
     this.bot = config.bot || false
-    this.history = {
-      'actions': [],
-      'positions': [],
-      'timestamps': []
-    }
-    this.history.positions.push(this.position)
-    this.history.timestamps.push(0)
-    this.history.actions.push(null)
     return this
   }
 
@@ -215,7 +246,6 @@ function ACSG (g) {
       direction = this.strategy.random()
     }
     botActions.push(direction)
-    this.history.actions.push(direction)
     Player.prototype.move.call(this, direction)
   }
 
@@ -268,6 +298,8 @@ function ACSG (g) {
     callback = callback || function () { console.log('Game finished.') }
     start = performance.now()
 
+    states.push(state(0))
+
     // Pregenerate bot motion timings, sans direction.
     botActionTimestamps = []
     botActions = []
@@ -316,15 +348,13 @@ function ACSG (g) {
           currentBot = players[whichBotMoves[lastBotActionIdx]]
           currentBot.move()
           currentBot.consume()
-          currentBot.history.positions.push(currentBot.position)
-          currentBot.history.timestamps.push(nextBotT)
+          states.push(this.state(nextBotT))
         } else {
           // Carry out human action.
           lastHumanActionIdx += 1
           players[0].move(actions[lastHumanActionIdx])
           players[0].consume()
-          players[0].history.positions.push(currentBot.position)
-          players[0].history.timestamps.push(nextHumanT)
+          states.push(this.state(nextHumanT))
         }
       }
 
@@ -418,7 +448,7 @@ var ACSG = require('./acsg')
 
 game = ACSG({ 'config': {
   NUM_PLAYERS: 9,
-  DURATION: 6,
+  DURATION: 60,
   INCLUDE_HUMAN: true,
   BOT_STRATEGY: 'random',
   ROWS: 25,

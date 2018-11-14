@@ -2,7 +2,7 @@ var ACSG = require('./acsg')
 
 game = ACSG({ 'config': {
   NUM_PLAYERS: 9,
-  DURATION: 6,
+  DURATION: 60,
   INCLUDE_HUMAN: true,
   BOT_STRATEGY: 'random',
   ROWS: 25,
