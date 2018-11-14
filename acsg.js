@@ -140,14 +140,6 @@ function ACSG (g) {
     this.color = config.color || teamColors[this.teamIdx]
     this.score = config.score || 0
     this.bot = config.bot || false
-    this.history = {
-      'actions': [],
-      'positions': [],
-      'timestamps': []
-    }
-    this.history.positions.push(this.position)
-    this.history.timestamps.push(0)
-    this.history.actions.push(null)
     return this
   }
 
@@ -214,7 +206,6 @@ function ACSG (g) {
       direction = this.strategy.random()
     }
     botActions.push(direction)
-    this.history.actions.push(direction)
     Player.prototype.move.call(this, direction)
   }
 
@@ -315,15 +306,11 @@ function ACSG (g) {
           currentBot = players[whichBotMoves[lastBotActionIdx]]
           currentBot.move()
           currentBot.consume()
-          currentBot.history.positions.push(currentBot.position)
-          currentBot.history.timestamps.push(nextBotT)
         } else {
           // Carry out human action.
           lastHumanActionIdx += 1
           players[0].move(actions[lastHumanActionIdx])
           players[0].consume()
-          players[0].history.positions.push(currentBot.position)
-          players[0].history.timestamps.push(nextHumanT)
         }
       }
 
