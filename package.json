@@ -1,6 +1,6 @@
 {
   "name": "acsg",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Run an adversarial collective-sensing game",
   "main": "acsg.js",
   "scripts": {
