@@ -111,6 +111,19 @@ function ACSG (g) {
     })
   }
 
+  // // Download the serialized game as a JSON file.
+  this.download = function () {
+    var blob = new Blob([this.serialize2()], {type: 'application/json'})
+    var url = URL.createObjectURL(blob)
+    var el = document.createElement('a')
+    el.style.display = 'none'
+    el.id = 'downloadAnchorElem'
+    el.href = url
+    el.download = 'game.json'
+    el.textContent = 'Download backup.json'
+    document.body.appendChild(el)
+    el.click()
+  }
 
   state = function (t) {
     s = {
