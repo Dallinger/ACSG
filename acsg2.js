@@ -86,6 +86,25 @@ acsg.Browser = (function () {
     index = position[0] * this.opts.COLUMNS + position[1]
     this.data[index] = color
   }
+  /**
+   * If in real-time mode, for every screen refresh update,
+   * call the callback function with the actual current timestamp.
+   *
+   * If we're not in real-time mode, return a timestamp that's later than
+   * the end of the experiment being replayed, so it executes all actions
+   * as fast as possible.
+   *
+   * See:
+   * https://github.com/regl-project/regl/blob/gh-pages/API.md#per-frame-callbacks
+   */
+  Browser.prototype.eventStream = function (callback) {
+    if (! this.opts.REAL_TIME) {
+      // Jump to the end of the game, so we process all events immediately
+      var afterGameOver = (performance.now() + this.opts.DURATION + 1) * 1000
+      this.pixels.frame(function (){ callback(afterGameOver) })
+    } else {
+      this.pixels.frame(function (){ callback(performance.now()) })
+    }
   }
 
   Browser.prototype.updateBackground = function () {
@@ -421,7 +440,9 @@ acsg.Game = (function () {
       this.actionTimestamps = g.data.timestamps
       this.opts = g.config
       this.replay = true
+      this.opts.REAL_TIME = g.config.REAL_TIME || false
     } else {             // A new game.
+      this.opts.REAL_TIME = true
       this.opts = opts = g.config || {}
       this.opts.NUM_PLAYERS = opts.NUM_PLAYERS || 10
       this.opts.INCLUDE_HUMAN = opts.INCLUDE_HUMAN || false

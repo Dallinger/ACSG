@@ -40,18 +40,28 @@
 </textarea>
   <br/>
   <button id="run" value="Run">Run</button>
+  <button id="run-fast" value="Run">Run Fast!</button>
 </form>
 </body>
 <script src="acsg2-dist.js"></script>
 <script>
-  document.getElementById('run').onclick = function () {
-    var config = JSON.parse(document.getElementById("data").value)
+  function runGame(config) {
     document.getElementById('enter-data').style.display = 'none'
     document.getElementById('acsg').style.display = 'block'
     game = acsg.Game(config)
     game.run(function () {
       game.exportFullGameData()
     })
+  }
+  document.getElementById('run').onclick = function () {
+    var config = JSON.parse(document.getElementById("data").value)
+    config.config.REAL_TIME = true
+    runGame(config)
+  };
+  document.getElementById('run-fast').onclick = function () {
+    var config = JSON.parse(document.getElementById("data").value)
+    config.config.REAL_TIME = false
+    runGame(config)
   };
 </script>
 </html>
