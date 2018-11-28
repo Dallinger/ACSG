@@ -42,15 +42,15 @@
   <button id="run" value="Run">Run</button>
 </form>
 </body>
-<script src="acsg-dist.js"></script>
+<script src="acsg2-dist.js"></script>
 <script>
   document.getElementById('run').onclick = function () {
     var config = JSON.parse(document.getElementById("data").value)
     document.getElementById('enter-data').style.display = 'none'
     document.getElementById('acsg').style.display = 'block'
-    game = ACSG(config)
+    game = acsg.ACSG(config)
     game.run(function () {
-      game.download()
+      game.exportFullGameData()
     })
   };
 </script>

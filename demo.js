@@ -1,6 +1,6 @@
-var ACSG = require('./acsg')
+var acsg = require('./acsg2')
 
-game = ACSG({ 'config': {
+game = acsg.ACSG({ 'config': {
   NUM_PLAYERS: 9,
   DURATION: 60,
   INCLUDE_HUMAN: true,
