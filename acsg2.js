@@ -13,6 +13,8 @@ var uuidv4 = require('uuid/v4')
 var GREEN = [0.51, 0.95, 0.61]
 var BLUE = [0.50, 0.86, 1.00]
 var YELLOW = [1.00, 0.86, 0.50]
+var BLACK = [0, 0, 0]
+var GRAY = [0.1, 0.1, 0.1]
 
 var teamColors = [BLUE, YELLOW]
 
@@ -55,8 +57,8 @@ acsg.Browser = (function () {
 
       for (var i = 0; i < opts.ROWS; i++) {
         for (var j = 0; j < opts.COLUMNS; j++) {
-          this.data.push([0, 0, 0])
-          this.background.push([0, 0, 0])
+          this.data.push(BLACK)
+          this.background.push(BLACK)
         }
       }
 
@@ -66,7 +68,7 @@ acsg.Browser = (function () {
         columns: opts.COLUMNS,
         size: opts.BLOCK_SIZE,
         padding: opts.BLOCK_PADDING,
-        background: [0.1, 0.1, 0.1],
+        background: GRAY,
         formatted: true
       })
   }
@@ -79,8 +81,11 @@ acsg.Browser = (function () {
     this.clock.innerHTML = ((t > 0) ? t.toFixed(1) : '0.0')
   }
 
-  Browser.prototype.eventStream = function () {
-    return this.pixels.frame
+  Browser.prototype.draw = function (position, color) {
+    // Covert x, y to linear index
+    index = position[0] * this.opts.COLUMNS + position[1]
+    this.data[index] = color
+  }
   }
 
   Browser.prototype.updateBackground = function () {
@@ -404,10 +409,10 @@ acsg.Food = (function () {
 }())
 
 
-acsg.ACSG = (function () {
+acsg.Game = (function () {
 
-  var ACSG = function (g) {
-    if (!(this instanceof ACSG)) return new ACSG(g)
+  var Game = function (g) {
+    if (!(this instanceof Game)) return new Game(g)
 
     // Check if this is a new game or a replay.
     if (g.id) {          // A replay.
@@ -437,9 +442,9 @@ acsg.ACSG = (function () {
     }
 
     if (this.opts.INCLUDE_HUMAN) {
-      this._NUM_BOTS = this.opts.NUM_PLAYERS - 1
+      this.numBots = this.opts.NUM_PLAYERS - 1
     } else {
-      this._NUM_BOTS = this.opts.NUM_PLAYERS
+      this.numBots = this.opts.NUM_PLAYERS
     }
 
     // Seed event RNG.
@@ -456,7 +461,7 @@ acsg.ACSG = (function () {
     }
 
     // Create the bots.
-    for (var i = 0; i < this._NUM_BOTS; i++) {
+    for (var i = 0; i < this.numBots; i++) {
       this.world.spawnBot()
     }
 
@@ -489,7 +494,7 @@ acsg.ACSG = (function () {
 
   }
 
-  ACSG.prototype.serialize = function () {
+  Game.prototype.serializeActions = function () {
     return JSON.stringify({
       'id': this.UUID,
       'data': {
@@ -500,7 +505,7 @@ acsg.ACSG = (function () {
     })
   }
 
-  ACSG.prototype.serialize2 = function () {
+  Game.prototype.serializeFullState = function () {
     var data = {
       'id': this.UUID,
       'data': {
@@ -508,32 +513,34 @@ acsg.ACSG = (function () {
         'timestamps': this.actionTimestamps
       },
       'config': this.opts,
-      // 'states': this.states,
     }
     data = extend(data, this.world.serialize())
     return JSON.stringify(data)
   }
 
-  ACSG.prototype.run = function (callback) {
+  Game.prototype.run = function (callback) {
     callback = callback || function () { console.log('Game finished.') }
     start = performance.now()
 
     this.world.recordState(0)
 
-    // Pregenerate bot motion timings, sans direction.
+    // Pregenerate bot motion timings, sans direction. Since the timing and
+    // direction of all bot movement is deterministic based on the seed
+    // to the random number generator, we can pregenerate a sequence of
+    // time+bot pairs to execute later.
     botActionTimestamps = []
     botActions = []
     whichBotMoves = []
     t = 0
     humanOffset = this.opts.INCLUDE_HUMAN ? 1 : 0
     while (true) {
-      waitTime = this.eventRandomizer.exponential(this.opts.BOT_MOTION_RATE * this._NUM_BOTS)
+      waitTime = this.eventRandomizer.exponential(this.opts.BOT_MOTION_RATE * this.numBots)
       if (t + waitTime > this.opts.DURATION) {
         break
       }
       t += waitTime
       botActionTimestamps.push(t)
-      idx = Math.floor(Math.random() * this._NUM_BOTS) + humanOffset
+      idx = Math.floor(Math.random() * this.numBots) + humanOffset
       whichBotMoves.push(idx)
     }
     lastBotActionIdx = -1
@@ -544,10 +551,11 @@ acsg.ACSG = (function () {
     completed = false
     self = this
     players = self.world.players
-    this.browser.eventStream()(function () {
-      elapsedTime = (performance.now() - start) / 1000
+    this.browser.eventStream(function (now) {
+      elapsedTime = (now - start) / 1000
 
-      // If original game w/ human, register all moves.
+      // If original game w/ human player, register any human moves
+      // added to the actions list with the current tick's timestamp
       if (self.opts.INCLUDE_HUMAN && !self.replay) {
         numActionsToDo = self.actions.length - self.actionTimestamps.length
         for (var i = 0; i < numActionsToDo; i++) {
@@ -583,35 +591,34 @@ acsg.ACSG = (function () {
 
       self.browser.updateBackground()
 
-
       // Draw the players and food
       self.world.players.forEach(function (p) {
-        self.browser.data[(p.position[0]) * self.opts.COLUMNS + p.position[1]] = p.color
+        self.browser.draw(p.position, p.color)
       })
       self.world.food.forEach(function (f) {
-        self.browser.data[(f.position[0]) * self.opts.COLUMNS + f.position[1]] = f.color
+        self.browser.draw(f.position, f.color)
       })
 
-      // Update the clock and background texture
+      // Update the UI
       self.browser.updateClock(self.opts.DURATION - elapsedTime)
       self.browser.updateMask(ego)
+      self.browser.updateData()
 
-
-      if (lastBotActionIdx < whichBotMoves.length - 1) {
-        self.browser.updateData()
-      } else if (!self.gameOver) {
-        self.gameOver = true
-        callback()
+      if (lastBotActionIdx >= whichBotMoves.length - 1) {
+        if (!self.gameOver) {
+          self.gameOver = true
+          callback()
+        }
       }
     })
   }
 
   // Download the serialized game as a JSON file.
-  ACSG.prototype.exportFullGameData = function () {
-    self.browser.exportFile(this.serialize2())
+  Game.prototype.exportFullGameData = function () {
+    self.browser.exportFile(this.serializeFullState())
   }
 
-  return ACSG
+  return Game
 }())
 
 module.exports = acsg

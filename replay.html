@@ -48,7 +48,7 @@
     var config = JSON.parse(document.getElementById("data").value)
     document.getElementById('enter-data').style.display = 'none'
     document.getElementById('acsg').style.display = 'block'
-    game = acsg.ACSG(config)
+    game = acsg.Game(config)
     game.run(function () {
       game.exportFullGameData()
     })
