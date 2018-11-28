@@ -442,8 +442,8 @@ acsg.Game = (function () {
       this.replay = true
       this.opts.REAL_TIME = g.config.REAL_TIME || false
     } else {             // A new game.
-      this.opts.REAL_TIME = true
       this.opts = opts = g.config || {}
+      this.opts.REAL_TIME = true
       this.opts.NUM_PLAYERS = opts.NUM_PLAYERS || 10
       this.opts.INCLUDE_HUMAN = opts.INCLUDE_HUMAN || false
       this.opts.DURATION = opts.DURATION || 120
