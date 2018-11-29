@@ -15,32 +15,21 @@
     #data {
       font-family: monospace;
     }
+    label {
+      font-weight: bold;
+    }
   </style>
   <div id="acsg">
     <p><code><span id="score">0</span> points, <span id="clock">1</span> s remaining</code></p>
   </div>
-  <form id="enter-data" action="#">
-  Data:
+  <form id="enter-data">
+    <label>Compressed Experiment Data</label>
+    <p>Paste the actions and timestamps data from a previous run into the text box below.</p>
   <br/>
-  <textarea id="data" rows="20" cols="80">
-{ "config": {
-  "NUM_PLAYERS": 9,
-  "DURATION": 6,
-  "INCLUDE_HUMAN": true,
-  "BOT_STRATEGY": "random",
-  "ROWS": 25,
-  "COLUMNS": 25,
-  "NUM_FOOD": 8,
-  "VISIBILITY": 50,
-  "BOT_MOTION_RATE": 4,
-  "BLOCK_SIZE": 12,
-  "BLOCK_PADDING": 1,
-  "SEED": "19145822646"
-}}
-</textarea>
+  <textarea id="data" rows="20" cols="80"></textarea>
   <br/>
-  <button id="run" value="Run">Run</button>
-  <button id="run-fast" value="Run">Run Fast!</button>
+  <button id="run" value="Run">Real-time</button> Watch the action as it happened.</br>
+  <button id="run-fast" value="Run">Express</button> Generate the uncompressed data set as fast as possible.
 </form>
 </body>
 <script src="acsg2-dist.js"></script>
@@ -53,15 +42,17 @@
       game.exportFullGameData()
     })
   }
-  document.getElementById('run').onclick = function () {
+  document.getElementById('run').onclick = function (event) {
     var config = JSON.parse(document.getElementById("data").value)
     config.config.REAL_TIME = true
     runGame(config)
+    event.preventDefault()
   };
-  document.getElementById('run-fast').onclick = function () {
+  document.getElementById('run-fast').onclick = function (event) {
     var config = JSON.parse(document.getElementById("data").value)
     config.config.REAL_TIME = false
     runGame(config)
+    event.preventDefault()
   };
 </script>
 </html>
