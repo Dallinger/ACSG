@@ -1,5 +1,6 @@
 var util = require('util')
 var css = require('dom-css')
+var fs = require('fs');
 var grid = require('./pixels')
 var parse = require('parse-color')
 var position = require('mouse-position')
@@ -8,6 +9,7 @@ var gaussian = require('gaussian')
 var Rands = require('rands')
 var seedrandom = require('seedrandom')
 var uuidv4 = require('uuid/v4')
+var performance = require('perf_hooks').performance;
 
 
 var GREEN = [0.51, 0.95, 0.61]
@@ -155,6 +157,55 @@ acsg.Browser = (function () {
   }
 
   return Browser
+}())
+
+acsg.FakeBrowser = (function () {
+
+  var FakeBrowser = function (opts) {
+      if (!(this instanceof FakeBrowser)) {
+          return new FakeBrowser(opts);
+      }
+      this.opts = opts
+  }
+
+  FakeBrowser.prototype.updateScoreboard = function (score) {
+    // Noop
+  }
+
+  FakeBrowser.prototype.updateClock = function (t) {
+    // Noop
+  }
+
+  FakeBrowser.prototype.draw = function (position, color) {
+    // Noop
+  }
+
+  FakeBrowser.prototype.eventStream = function (callback) {
+    var afterGameOver = (performance.now() + this.opts.DURATION + 1) * 1000
+    callback(afterGameOver)
+  }
+
+  FakeBrowser.prototype.updateBackground = function () {
+    // Noop
+  }
+
+  FakeBrowser.prototype.updateMask = function (ego) {
+    // Noop
+  }
+
+  FakeBrowser.prototype.updateData = function () {
+    // Noop
+  }
+
+  FakeBrowser.prototype.exportFile = function (data) {
+    console.log("Write data to file here...")
+    fs.writeFileSync('data/game-decompressed.json', data, function (err) {
+      if (err) throw err;
+      console.log('The file has been saved!');
+    });
+  }
+
+  return FakeBrowser
 }())
 
 acsg.World = (function () {
@@ -473,7 +524,11 @@ acsg.Game = (function () {
     this.eventRandomizer = new Rands()
 
     this.gameOver = false
-    this.browser = acsg.Browser(this.opts)
+    if (this.opts.IS_CLI) {
+      this.browser = acsg.FakeBrowser(this.opts)
+    } else {
+      this.browser = acsg.Browser(this.opts)
+    }
     this.world = acsg.World(this.opts)
 
     // Create the human.
@@ -495,7 +550,7 @@ acsg.Game = (function () {
     //
     // Key bindings
     //
-    if (this.opts.INCLUDE_HUMAN) {
+    if (this.opts.INCLUDE_HUMAN && !this.opts.IS_CLI) {
       directions = ['up', 'down', 'left', 'right']
       lock = false
       directions.forEach(function (direction) {
@@ -536,7 +591,7 @@ acsg.Game = (function () {
       'config': this.opts,
     }
     data = extend(data, this.world.serialize())
-    return JSON.stringify(data)
+    return JSON.stringify(data, 4)
   }
 
   Game.prototype.run = function (callback) {
