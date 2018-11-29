@@ -14,6 +14,8 @@ var uuidv4 = require('uuid/v4')
 var GREEN = [0.51, 0.95, 0.61]
 var BLUE = [0.50, 0.86, 1.00]
 var YELLOW = [1.00, 0.86, 0.50]
+var BLACK = [0, 0, 0]
+var GRAY = [0.1, 0.1, 0.1]
 
 var teamColors = [BLUE, YELLOW]
 
@@ -56,8 +58,8 @@ acsg.Browser = (function () {
 
       for (var i = 0; i < opts.ROWS; i++) {
         for (var j = 0; j < opts.COLUMNS; j++) {
-          this.data.push([0, 0, 0])
-          this.background.push([0, 0, 0])
+          this.data.push(BLACK)
+          this.background.push(BLACK)
         }
       }
 
@@ -67,7 +69,7 @@ acsg.Browser = (function () {
         columns: opts.COLUMNS,
         size: opts.BLOCK_SIZE,
         padding: opts.BLOCK_PADDING,
-        background: [0.1, 0.1, 0.1],
+        background: GRAY,
         formatted: true
       })
   }
@@ -80,8 +82,30 @@ acsg.Browser = (function () {
     this.clock.innerHTML = ((t > 0) ? t.toFixed(1) : '0.0')
   }
 
-  Browser.prototype.eventStream = function () {
-    return this.pixels.frame
+  Browser.prototype.draw = function (position, color) {
+    // Covert x, y to linear index
+    index = position[0] * this.opts.COLUMNS + position[1]
+    this.data[index] = color
+  }
+  /**
+   * If in real-time mode, for every screen refresh update,
+   * call the callback function with the actual current timestamp.
+   *
+   * If we're not in real-time mode, return a timestamp that's later than
+   * the end of the experiment being replayed, so it executes all actions
+   * as fast as possible.
+   *
+   * See:
+   * https://github.com/regl-project/regl/blob/gh-pages/API.md#per-frame-callbacks
+   */
+  Browser.prototype.eventStream = function (callback) {
+    if (! this.opts.REAL_TIME) {
+      // Jump to the end of the game, so we process all events immediately
+      var afterGameOver = (performance.now() + this.opts.DURATION + 1) * 1000
+      this.pixels.frame(function (){ callback(afterGameOver) })
+    } else {
+      this.pixels.frame(function (){ callback(performance.now()) })
+    }
   }
 
   Browser.prototype.updateBackground = function () {
@@ -405,10 +429,10 @@ acsg.Food = (function () {
 }())
 
 
-acsg.ACSG = (function () {
+acsg.Game = (function () {
 
-  var ACSG = function (g) {
-    if (!(this instanceof ACSG)) return new ACSG(g)
+  var Game = function (g) {
+    if (!(this instanceof Game)) return new Game(g)
 
     // Check if this is a new game or a replay.
     if (g.id) {          // A replay.
@@ -417,8 +441,10 @@ acsg.ACSG = (function () {
       this.actionTimestamps = g.data.timestamps
       this.opts = g.config
       this.replay = true
+      this.opts.REAL_TIME = g.config.REAL_TIME || false
     } else {             // A new game.
       this.opts = opts = g.config || {}
+      this.opts.REAL_TIME = true
       this.opts.NUM_PLAYERS = opts.NUM_PLAYERS || 10
       this.opts.INCLUDE_HUMAN = opts.INCLUDE_HUMAN || false
       this.opts.DURATION = opts.DURATION || 120
@@ -438,9 +464,9 @@ acsg.ACSG = (function () {
     }
 
     if (this.opts.INCLUDE_HUMAN) {
-      this._NUM_BOTS = this.opts.NUM_PLAYERS - 1
+      this.numBots = this.opts.NUM_PLAYERS - 1
     } else {
-      this._NUM_BOTS = this.opts.NUM_PLAYERS
+      this.numBots = this.opts.NUM_PLAYERS
     }
 
     // Seed event RNG.
@@ -457,7 +483,7 @@ acsg.ACSG = (function () {
     }
 
     // Create the bots.
-    for (var i = 0; i < this._NUM_BOTS; i++) {
+    for (var i = 0; i < this.numBots; i++) {
       this.world.spawnBot()
     }
 
@@ -490,7 +516,7 @@ acsg.ACSG = (function () {
 
   }
 
-  ACSG.prototype.serialize = function () {
+  Game.prototype.serializeActions = function () {
     return JSON.stringify({
       'id': this.UUID,
       'data': {
@@ -501,7 +527,7 @@ acsg.ACSG = (function () {
     })
   }
 
-  ACSG.prototype.serialize2 = function () {
+  Game.prototype.serializeFullState = function () {
     var data = {
       'id': this.UUID,
       'data': {
@@ -509,32 +535,34 @@ acsg.ACSG = (function () {
         'timestamps': this.actionTimestamps
       },
       'config': this.opts,
-      // 'states': this.states,
     }
     data = extend(data, this.world.serialize())
     return JSON.stringify(data)
   }
 
-  ACSG.prototype.run = function (callback) {
+  Game.prototype.run = function (callback) {
     callback = callback || function () { console.log('Game finished.') }
     start = performance.now()
 
     this.world.recordState(0)
 
-    // Pregenerate bot motion timings, sans direction.
+    // Pregenerate bot motion timings, sans direction. Since the timing and
+    // direction of all bot movement is deterministic based on the seed
+    // to the random number generator, we can pregenerate a sequence of
+    // time+bot pairs to execute later.
     botActionTimestamps = []
     botActions = []
     whichBotMoves = []
     t = 0
     humanOffset = this.opts.INCLUDE_HUMAN ? 1 : 0
     while (true) {
-      waitTime = this.eventRandomizer.exponential(this.opts.BOT_MOTION_RATE * this._NUM_BOTS)
+      waitTime = this.eventRandomizer.exponential(this.opts.BOT_MOTION_RATE * this.numBots)
       if (t + waitTime > this.opts.DURATION) {
         break
       }
       t += waitTime
       botActionTimestamps.push(t)
-      idx = Math.floor(Math.random() * this._NUM_BOTS) + humanOffset
+      idx = Math.floor(Math.random() * this.numBots) + humanOffset
       whichBotMoves.push(idx)
     }
     lastBotActionIdx = -1
@@ -545,10 +573,11 @@ acsg.ACSG = (function () {
     completed = false
     self = this
     players = self.world.players
-    this.browser.eventStream()(function () {
-      elapsedTime = (performance.now() - start) / 1000
+    this.browser.eventStream(function (now) {
+      elapsedTime = (now - start) / 1000
 
-      // If original game w/ human, register all moves.
+      // If original game w/ human player, register any human moves
+      // added to the actions list with the current tick's timestamp
       if (self.opts.INCLUDE_HUMAN && !self.replay) {
         numActionsToDo = self.actions.length - self.actionTimestamps.length
         for (var i = 0; i < numActionsToDo; i++) {
@@ -584,43 +613,42 @@ acsg.ACSG = (function () {
 
       self.browser.updateBackground()
 
-
       // Draw the players and food
       self.world.players.forEach(function (p) {
-        self.browser.data[(p.position[0]) * self.opts.COLUMNS + p.position[1]] = p.color
+        self.browser.draw(p.position, p.color)
       })
       self.world.food.forEach(function (f) {
-        self.browser.data[(f.position[0]) * self.opts.COLUMNS + f.position[1]] = f.color
+        self.browser.draw(f.position, f.color)
       })
 
-      // Update the clock and background texture
+      // Update the UI
       self.browser.updateClock(self.opts.DURATION - elapsedTime)
       self.browser.updateMask(ego)
+      self.browser.updateData()
 
-
-      if (lastBotActionIdx < whichBotMoves.length - 1) {
-        self.browser.updateData()
-      } else if (!self.gameOver) {
-        self.gameOver = true
-        callback()
+      if (lastBotActionIdx >= whichBotMoves.length - 1) {
+        if (!self.gameOver) {
+          self.gameOver = true
+          callback()
+        }
       }
     })
   }
 
   // Download the serialized game as a JSON file.
-  ACSG.prototype.exportFullGameData = function () {
-    self.browser.exportFile(this.serialize2())
+  Game.prototype.exportFullGameData = function () {
+    self.browser.exportFile(this.serializeFullState())
   }
 
-  return ACSG
+  return Game
 }())
 
 module.exports = acsg
 
 },{"./pixels":69,"dom-css":6,"gaussian":9,"mouse-position":15,"mousetrap":16,"parse-color":17,"rands":21,"seedrandom":55,"util":76,"uuid/v4":68}],2:[function(require,module,exports){
-var acsg = require('./acsg2')
+var acsg = require('./acsg')
 
-game = acsg.ACSG({ 'config': {
+game = acsg.Game({ 'config': {
   NUM_PLAYERS: 9,
   DURATION: 10,
   INCLUDE_HUMAN: true,
@@ -635,7 +663,7 @@ game = acsg.ACSG({ 'config': {
   SEED: '19145822646'
 }})
 
-game.run(function () { console.log(game.serialize()) })
+game.run(function () { console.log(game.serializeActions()) })
 
 // g = {'id': '9ecf49af-b9b6-42a4-bb17-9d833f2fef99', 'data': {'actions': ['right', 'right', 'right', 'up', 'left', 'left', 'up', 'up', 'up', 'up', 'up', 'right', 'down', 'down', 'down', 'down', 'down', 'down', 'down', 'down', 'left', 'left', 'down', 'down', 'left', 'down', 'down', 'right', 'right', 'right', 'right', 'right', 'right', 'right', 'right', 'down', 'down', 'down', 'down', 'down', 'down', 'down', 'down', 'right', 'right', 'right', 'down', 'down', 'right', 'right', 'right', 'right', 'right', 'up', 'down', 'down', 'right', 'right', 'right', 'right', 'left', 'left', 'up', 'up', 'left', 'up', 'up', 'up', 'up', 'left', 'left', 'up', 'up', 'up', 'left', 'up', 'up', 'up', 'up', 'up', 'up', 'up', 'up', 'up', 'right', 'right', 'down', 'down', 'down', 'down', 'down', 'down', 'down', 'down', 'up', 'up', 'up', 'up', 'up', 'up', 'up', 'up', 'up', 'right', 'right', 'right', 'right', 'right', 'right', 'right', 'up', 'up', 'up', 'up', 'up', 'left', 'left', 'left', 'left', 'left', 'left', 'left', 'left', 'down', 'down', 'left', 'left', 'down', 'down', 'left', 'left', 'left', 'left'], 'timestamps': [0.3936000000103377, 0.561199999996461, 0.7281000000075437, 0.8938000000198372, 1.0938000000023749, 1.2613000000128523, 1.377200000017183, 1.5278000000107568, 1.6604999999981374, 1.8270999999949709, 1.9605000000155997, 2.160200000012992, 2.343800000002375, 2.493900000001304, 2.6098000000056345, 2.7761999999929685, 2.9275000000197906, 3.0605000000214204, 3.2098000000114553, 3.3769000000029337, 3.4611000000149943, 3.6107999999949243, 3.760500000003958, 3.8932000000204425, 4.027100000006612, 4.193800000008196, 4.343699999997625, 4.510399999999208, 4.644300000014482, 4.7766000000119675, 4.910800000012387, 5.044099999999162, 5.159400000004098, 5.310300000011921, 5.443499999993946, 5.593599999992875, 5.727100000018254, 5.84340000001248, 5.992800000007264, 6.110600000014529, 6.242800000007264, 6.394100000004983, 6.510800000018207, 6.642600000021048, 6.794300000008661, 6.9267000000108965, 7.110799999994924, 7.243900000001304, 7.4275999999954365, 7.560900000011316, 7.710600000020349, 7.860500000009779, 8.010800000018207, 8.159400000004098, 8.359800000005635, 8.510899999993853, 8.593900000007125, 8.743700000020908, 8.876400000008289, 9.027400000020862, 9.192800000018906, 9.359700000000885, 9.410800000012387, 9.544099999999162, 9.626799999998184, 9.742499999993015, 9.926200000016252, 10.093599999992875, 10.260399999999208, 10.35920000000624, 10.527400000020862, 10.677200000005541, 10.827699999994365, 10.9600999999966, 11.143700000015087, 11.309999999997672, 11.477100000018254, 11.644000000000233, 11.793700000009267, 11.94330000001355, 12.09350000001723, 12.243500000011409, 12.376300000003539, 12.527400000020862, 12.627200000017183, 12.777400000020862, 12.893200000020443, 13.043900000018766, 13.192899999994552, 13.32719999999972, 13.459900000016205, 13.610500000009779, 13.743700000020908, 13.910399999993388, 14.075800000020536, 14.22609999999986, 14.377299999992829, 14.527000000001863, 14.660200000012992, 14.810599999997066, 14.96020000000135, 15.109800000005635, 15.277200000011362, 15.51469999999972, 15.62609999999404, 15.777300000016112, 15.892500000016298, 16.043800000014016, 16.193800000008196, 16.34320000000298, 16.49350000001141, 16.643800000019837, 16.793800000014016, 16.943499999993946, 17.092700000008335, 17.260500000003958, 17.392500000016298, 17.55999999999767, 17.71020000000135, 17.86040000000503, 18.025900000007823, 18.176700000010896, 18.35950000002049, 18.443700000003446, 18.527000000001863, 18.693900000012945, 18.842499999998836, 18.993700000020908, 19.159400000004098, 19.30920000001788, 19.477000000013504, 19.659299999999348, 19.793900000018766]}, 'config': {'NUM_PLAYERS': 9, 'DURATION': 20, 'INCLUDE_HUMAN': true, 'BOT_STRATEGY': 'random', 'ROWS': 25, 'COLUMNS': 25, 'NUM_FOOD': 8, 'VISIBILITY': 50, 'BOT_MOTION_RATE': 4, 'BLOCK_SIZE': 12, 'BLOCK_PADDING': 1, 'SEED': '19145822646'}}
 //
@@ -643,7 +671,7 @@ game.run(function () { console.log(game.serialize()) })
 //
 // game.run()
 
-},{"./acsg2":1}],3:[function(require,module,exports){
+},{"./acsg":1}],3:[function(require,module,exports){
 /* The following list is defined in React's core */
 var IS_UNITLESS = {
   animationIterationCount: true,
