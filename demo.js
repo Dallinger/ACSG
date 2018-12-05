@@ -1,4 +1,4 @@
-var acsg = require('./acsg2')
+var acsg = require('./acsg')
 
 game = acsg.Game({ 'config': {
   NUM_PLAYERS: 9,
