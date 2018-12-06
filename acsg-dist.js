@@ -1,6 +1,819 @@
-(function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.ACSG = f()}})(function(){var define,module,exports;return (function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
+(function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.acsg = f()}})(function(){var define,module,exports;return (function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
+
+},{}],2:[function(require,module,exports){
+arguments[4][1][0].apply(exports,arguments)
+},{"dup":1}],3:[function(require,module,exports){
+if (typeof Object.create === 'function') {
+  // implementation from standard node.js 'util' module
+  module.exports = function inherits(ctor, superCtor) {
+    ctor.super_ = superCtor
+    ctor.prototype = Object.create(superCtor.prototype, {
+      constructor: {
+        value: ctor,
+        enumerable: false,
+        writable: true,
+        configurable: true
+      }
+    });
+  };
+} else {
+  // old school shim for old browsers
+  module.exports = function inherits(ctor, superCtor) {
+    ctor.super_ = superCtor
+    var TempCtor = function () {}
+    TempCtor.prototype = superCtor.prototype
+    ctor.prototype = new TempCtor()
+    ctor.prototype.constructor = ctor
+  }
+}
+
+},{}],4:[function(require,module,exports){
+// shim for using process in browser
+var process = module.exports = {};
+
+// cached from whatever global is present so that test runners that stub it
+// don't break things.  But we need to wrap it in a try catch in case it is
+// wrapped in strict mode code which doesn't define any globals.  It's inside a
+// function because try/catches deoptimize in certain engines.
+
+var cachedSetTimeout;
+var cachedClearTimeout;
+
+function defaultSetTimout() {
+    throw new Error('setTimeout has not been defined');
+}
+function defaultClearTimeout () {
+    throw new Error('clearTimeout has not been defined');
+}
+(function () {
+    try {
+        if (typeof setTimeout === 'function') {
+            cachedSetTimeout = setTimeout;
+        } else {
+            cachedSetTimeout = defaultSetTimout;
+        }
+    } catch (e) {
+        cachedSetTimeout = defaultSetTimout;
+    }
+    try {
+        if (typeof clearTimeout === 'function') {
+            cachedClearTimeout = clearTimeout;
+        } else {
+            cachedClearTimeout = defaultClearTimeout;
+        }
+    } catch (e) {
+        cachedClearTimeout = defaultClearTimeout;
+    }
+} ())
+function runTimeout(fun) {
+    if (cachedSetTimeout === setTimeout) {
+        //normal enviroments in sane situations
+        return setTimeout(fun, 0);
+    }
+    // if setTimeout wasn't available but was latter defined
+    if ((cachedSetTimeout === defaultSetTimout || !cachedSetTimeout) && setTimeout) {
+        cachedSetTimeout = setTimeout;
+        return setTimeout(fun, 0);
+    }
+    try {
+        // when when somebody has screwed with setTimeout but no I.E. maddness
+        return cachedSetTimeout(fun, 0);
+    } catch(e){
+        try {
+            // When we are in I.E. but the script has been evaled so I.E. doesn't trust the global object when called normally
+            return cachedSetTimeout.call(null, fun, 0);
+        } catch(e){
+            // same as above but when it's a version of I.E. that must have the global object for 'this', hopfully our context correct otherwise it will throw a global error
+            return cachedSetTimeout.call(this, fun, 0);
+        }
+    }
+
+
+}
+function runClearTimeout(marker) {
+    if (cachedClearTimeout === clearTimeout) {
+        //normal enviroments in sane situations
+        return clearTimeout(marker);
+    }
+    // if clearTimeout wasn't available but was latter defined
+    if ((cachedClearTimeout === defaultClearTimeout || !cachedClearTimeout) && clearTimeout) {
+        cachedClearTimeout = clearTimeout;
+        return clearTimeout(marker);
+    }
+    try {
+        // when when somebody has screwed with setTimeout but no I.E. maddness
+        return cachedClearTimeout(marker);
+    } catch (e){
+        try {
+            // When we are in I.E. but the script has been evaled so I.E. doesn't  trust the global object when called normally
+            return cachedClearTimeout.call(null, marker);
+        } catch (e){
+            // same as above but when it's a version of I.E. that must have the global object for 'this', hopfully our context correct otherwise it will throw a global error.
+            // Some versions of I.E. have different rules for clearTimeout vs setTimeout
+            return cachedClearTimeout.call(this, marker);
+        }
+    }
+
+
+
+}
+var queue = [];
+var draining = false;
+var currentQueue;
+var queueIndex = -1;
+
+function cleanUpNextTick() {
+    if (!draining || !currentQueue) {
+        return;
+    }
+    draining = false;
+    if (currentQueue.length) {
+        queue = currentQueue.concat(queue);
+    } else {
+        queueIndex = -1;
+    }
+    if (queue.length) {
+        drainQueue();
+    }
+}
+
+function drainQueue() {
+    if (draining) {
+        return;
+    }
+    var timeout = runTimeout(cleanUpNextTick);
+    draining = true;
+
+    var len = queue.length;
+    while(len) {
+        currentQueue = queue;
+        queue = [];
+        while (++queueIndex < len) {
+            if (currentQueue) {
+                currentQueue[queueIndex].run();
+            }
+        }
+        queueIndex = -1;
+        len = queue.length;
+    }
+    currentQueue = null;
+    draining = false;
+    runClearTimeout(timeout);
+}
+
+process.nextTick = function (fun) {
+    var args = new Array(arguments.length - 1);
+    if (arguments.length > 1) {
+        for (var i = 1; i < arguments.length; i++) {
+            args[i - 1] = arguments[i];
+        }
+    }
+    queue.push(new Item(fun, args));
+    if (queue.length === 1 && !draining) {
+        runTimeout(drainQueue);
+    }
+};
+
+// v8 likes predictible objects
+function Item(fun, array) {
+    this.fun = fun;
+    this.array = array;
+}
+Item.prototype.run = function () {
+    this.fun.apply(null, this.array);
+};
+process.title = 'browser';
+process.browser = true;
+process.env = {};
+process.argv = [];
+process.version = ''; // empty string to avoid regexp issues
+process.versions = {};
+
+function noop() {}
+
+process.on = noop;
+process.addListener = noop;
+process.once = noop;
+process.off = noop;
+process.removeListener = noop;
+process.removeAllListeners = noop;
+process.emit = noop;
+process.prependListener = noop;
+process.prependOnceListener = noop;
+
+process.listeners = function (name) { return [] }
+
+process.binding = function (name) {
+    throw new Error('process.binding is not supported');
+};
+
+process.cwd = function () { return '/' };
+process.chdir = function (dir) {
+    throw new Error('process.chdir is not supported');
+};
+process.umask = function() { return 0; };
+
+},{}],5:[function(require,module,exports){
+module.exports = function isBuffer(arg) {
+  return arg && typeof arg === 'object'
+    && typeof arg.copy === 'function'
+    && typeof arg.fill === 'function'
+    && typeof arg.readUInt8 === 'function';
+}
+},{}],6:[function(require,module,exports){
+(function (process,global){
+// Copyright Joyent, Inc. and other Node contributors.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a
+// copy of this software and associated documentation files (the
+// "Software"), to deal in the Software without restriction, including
+// without limitation the rights to use, copy, modify, merge, publish,
+// distribute, sublicense, and/or sell copies of the Software, and to permit
+// persons to whom the Software is furnished to do so, subject to the
+// following conditions:
+//
+// The above copyright notice and this permission notice shall be included
+// in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
+// NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+// DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+// OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
+// USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+var formatRegExp = /%[sdj%]/g;
+exports.format = function(f) {
+  if (!isString(f)) {
+    var objects = [];
+    for (var i = 0; i < arguments.length; i++) {
+      objects.push(inspect(arguments[i]));
+    }
+    return objects.join(' ');
+  }
+
+  var i = 1;
+  var args = arguments;
+  var len = args.length;
+  var str = String(f).replace(formatRegExp, function(x) {
+    if (x === '%%') return '%';
+    if (i >= len) return x;
+    switch (x) {
+      case '%s': return String(args[i++]);
+      case '%d': return Number(args[i++]);
+      case '%j':
+        try {
+          return JSON.stringify(args[i++]);
+        } catch (_) {
+          return '[Circular]';
+        }
+      default:
+        return x;
+    }
+  });
+  for (var x = args[i]; i < len; x = args[++i]) {
+    if (isNull(x) || !isObject(x)) {
+      str += ' ' + x;
+    } else {
+      str += ' ' + inspect(x);
+    }
+  }
+  return str;
+};
+
+
+// Mark that a method should not be used.
+// Returns a modified function which warns once by default.
+// If --no-deprecation is set, then it is a no-op.
+exports.deprecate = function(fn, msg) {
+  // Allow for deprecating things in the process of starting up.
+  if (isUndefined(global.process)) {
+    return function() {
+      return exports.deprecate(fn, msg).apply(this, arguments);
+    };
+  }
+
+  if (process.noDeprecation === true) {
+    return fn;
+  }
+
+  var warned = false;
+  function deprecated() {
+    if (!warned) {
+      if (process.throwDeprecation) {
+        throw new Error(msg);
+      } else if (process.traceDeprecation) {
+        console.trace(msg);
+      } else {
+        console.error(msg);
+      }
+      warned = true;
+    }
+    return fn.apply(this, arguments);
+  }
+
+  return deprecated;
+};
+
+
+var debugs = {};
+var debugEnviron;
+exports.debuglog = function(set) {
+  if (isUndefined(debugEnviron))
+    debugEnviron = process.env.NODE_DEBUG || '';
+  set = set.toUpperCase();
+  if (!debugs[set]) {
+    if (new RegExp('\\b' + set + '\\b', 'i').test(debugEnviron)) {
+      var pid = process.pid;
+      debugs[set] = function() {
+        var msg = exports.format.apply(exports, arguments);
+        console.error('%s %d: %s', set, pid, msg);
+      };
+    } else {
+      debugs[set] = function() {};
+    }
+  }
+  return debugs[set];
+};
+
+
+/**
+ * Echos the value of a value. Trys to print the value out
+ * in the best way possible given the different types.
+ *
+ * @param {Object} obj The object to print out.
+ * @param {Object} opts Optional options object that alters the output.
+ */
+/* legacy: obj, showHidden, depth, colors*/
+function inspect(obj, opts) {
+  // default options
+  var ctx = {
+    seen: [],
+    stylize: stylizeNoColor
+  };
+  // legacy...
+  if (arguments.length >= 3) ctx.depth = arguments[2];
+  if (arguments.length >= 4) ctx.colors = arguments[3];
+  if (isBoolean(opts)) {
+    // legacy...
+    ctx.showHidden = opts;
+  } else if (opts) {
+    // got an "options" object
+    exports._extend(ctx, opts);
+  }
+  // set default options
+  if (isUndefined(ctx.showHidden)) ctx.showHidden = false;
+  if (isUndefined(ctx.depth)) ctx.depth = 2;
+  if (isUndefined(ctx.colors)) ctx.colors = false;
+  if (isUndefined(ctx.customInspect)) ctx.customInspect = true;
+  if (ctx.colors) ctx.stylize = stylizeWithColor;
+  return formatValue(ctx, obj, ctx.depth);
+}
+exports.inspect = inspect;
+
+
+// http://en.wikipedia.org/wiki/ANSI_escape_code#graphics
+inspect.colors = {
+  'bold' : [1, 22],
+  'italic' : [3, 23],
+  'underline' : [4, 24],
+  'inverse' : [7, 27],
+  'white' : [37, 39],
+  'grey' : [90, 39],
+  'black' : [30, 39],
+  'blue' : [34, 39],
+  'cyan' : [36, 39],
+  'green' : [32, 39],
+  'magenta' : [35, 39],
+  'red' : [31, 39],
+  'yellow' : [33, 39]
+};
+
+// Don't use 'blue' not visible on cmd.exe
+inspect.styles = {
+  'special': 'cyan',
+  'number': 'yellow',
+  'boolean': 'yellow',
+  'undefined': 'grey',
+  'null': 'bold',
+  'string': 'green',
+  'date': 'magenta',
+  // "name": intentionally not styling
+  'regexp': 'red'
+};
+
+
+function stylizeWithColor(str, styleType) {
+  var style = inspect.styles[styleType];
+
+  if (style) {
+    return '\u001b[' + inspect.colors[style][0] + 'm' + str +
+           '\u001b[' + inspect.colors[style][1] + 'm';
+  } else {
+    return str;
+  }
+}
+
+
+function stylizeNoColor(str, styleType) {
+  return str;
+}
+
+
+function arrayToHash(array) {
+  var hash = {};
+
+  array.forEach(function(val, idx) {
+    hash[val] = true;
+  });
+
+  return hash;
+}
+
+
+function formatValue(ctx, value, recurseTimes) {
+  // Provide a hook for user-specified inspect functions.
+  // Check that value is an object with an inspect function on it
+  if (ctx.customInspect &&
+      value &&
+      isFunction(value.inspect) &&
+      // Filter out the util module, it's inspect function is special
+      value.inspect !== exports.inspect &&
+      // Also filter out any prototype objects using the circular check.
+      !(value.constructor && value.constructor.prototype === value)) {
+    var ret = value.inspect(recurseTimes, ctx);
+    if (!isString(ret)) {
+      ret = formatValue(ctx, ret, recurseTimes);
+    }
+    return ret;
+  }
+
+  // Primitive types cannot have properties
+  var primitive = formatPrimitive(ctx, value);
+  if (primitive) {
+    return primitive;
+  }
+
+  // Look up the keys of the object.
+  var keys = Object.keys(value);
+  var visibleKeys = arrayToHash(keys);
+
+  if (ctx.showHidden) {
+    keys = Object.getOwnPropertyNames(value);
+  }
+
+  // IE doesn't make error fields non-enumerable
+  // http://msdn.microsoft.com/en-us/library/ie/dww52sbt(v=vs.94).aspx
+  if (isError(value)
+      && (keys.indexOf('message') >= 0 || keys.indexOf('description') >= 0)) {
+    return formatError(value);
+  }
+
+  // Some type of object without properties can be shortcutted.
+  if (keys.length === 0) {
+    if (isFunction(value)) {
+      var name = value.name ? ': ' + value.name : '';
+      return ctx.stylize('[Function' + name + ']', 'special');
+    }
+    if (isRegExp(value)) {
+      return ctx.stylize(RegExp.prototype.toString.call(value), 'regexp');
+    }
+    if (isDate(value)) {
+      return ctx.stylize(Date.prototype.toString.call(value), 'date');
+    }
+    if (isError(value)) {
+      return formatError(value);
+    }
+  }
+
+  var base = '', array = false, braces = ['{', '}'];
+
+  // Make Array say that they are Array
+  if (isArray(value)) {
+    array = true;
+    braces = ['[', ']'];
+  }
+
+  // Make functions say that they are functions
+  if (isFunction(value)) {
+    var n = value.name ? ': ' + value.name : '';
+    base = ' [Function' + n + ']';
+  }
+
+  // Make RegExps say that they are RegExps
+  if (isRegExp(value)) {
+    base = ' ' + RegExp.prototype.toString.call(value);
+  }
+
+  // Make dates with properties first say the date
+  if (isDate(value)) {
+    base = ' ' + Date.prototype.toUTCString.call(value);
+  }
+
+  // Make error with message first say the error
+  if (isError(value)) {
+    base = ' ' + formatError(value);
+  }
+
+  if (keys.length === 0 && (!array || value.length == 0)) {
+    return braces[0] + base + braces[1];
+  }
+
+  if (recurseTimes < 0) {
+    if (isRegExp(value)) {
+      return ctx.stylize(RegExp.prototype.toString.call(value), 'regexp');
+    } else {
+      return ctx.stylize('[Object]', 'special');
+    }
+  }
+
+  ctx.seen.push(value);
+
+  var output;
+  if (array) {
+    output = formatArray(ctx, value, recurseTimes, visibleKeys, keys);
+  } else {
+    output = keys.map(function(key) {
+      return formatProperty(ctx, value, recurseTimes, visibleKeys, key, array);
+    });
+  }
+
+  ctx.seen.pop();
+
+  return reduceToSingleString(output, base, braces);
+}
+
+
+function formatPrimitive(ctx, value) {
+  if (isUndefined(value))
+    return ctx.stylize('undefined', 'undefined');
+  if (isString(value)) {
+    var simple = '\'' + JSON.stringify(value).replace(/^"|"$/g, '')
+                                             .replace(/'/g, "\\'")
+                                             .replace(/\\"/g, '"') + '\'';
+    return ctx.stylize(simple, 'string');
+  }
+  if (isNumber(value))
+    return ctx.stylize('' + value, 'number');
+  if (isBoolean(value))
+    return ctx.stylize('' + value, 'boolean');
+  // For some reason typeof null is "object", so special case here.
+  if (isNull(value))
+    return ctx.stylize('null', 'null');
+}
+
+
+function formatError(value) {
+  return '[' + Error.prototype.toString.call(value) + ']';
+}
+
+
+function formatArray(ctx, value, recurseTimes, visibleKeys, keys) {
+  var output = [];
+  for (var i = 0, l = value.length; i < l; ++i) {
+    if (hasOwnProperty(value, String(i))) {
+      output.push(formatProperty(ctx, value, recurseTimes, visibleKeys,
+          String(i), true));
+    } else {
+      output.push('');
+    }
+  }
+  keys.forEach(function(key) {
+    if (!key.match(/^\d+$/)) {
+      output.push(formatProperty(ctx, value, recurseTimes, visibleKeys,
+          key, true));
+    }
+  });
+  return output;
+}
+
+
+function formatProperty(ctx, value, recurseTimes, visibleKeys, key, array) {
+  var name, str, desc;
+  desc = Object.getOwnPropertyDescriptor(value, key) || { value: value[key] };
+  if (desc.get) {
+    if (desc.set) {
+      str = ctx.stylize('[Getter/Setter]', 'special');
+    } else {
+      str = ctx.stylize('[Getter]', 'special');
+    }
+  } else {
+    if (desc.set) {
+      str = ctx.stylize('[Setter]', 'special');
+    }
+  }
+  if (!hasOwnProperty(visibleKeys, key)) {
+    name = '[' + key + ']';
+  }
+  if (!str) {
+    if (ctx.seen.indexOf(desc.value) < 0) {
+      if (isNull(recurseTimes)) {
+        str = formatValue(ctx, desc.value, null);
+      } else {
+        str = formatValue(ctx, desc.value, recurseTimes - 1);
+      }
+      if (str.indexOf('\n') > -1) {
+        if (array) {
+          str = str.split('\n').map(function(line) {
+            return '  ' + line;
+          }).join('\n').substr(2);
+        } else {
+          str = '\n' + str.split('\n').map(function(line) {
+            return '   ' + line;
+          }).join('\n');
+        }
+      }
+    } else {
+      str = ctx.stylize('[Circular]', 'special');
+    }
+  }
+  if (isUndefined(name)) {
+    if (array && key.match(/^\d+$/)) {
+      return str;
+    }
+    name = JSON.stringify('' + key);
+    if (name.match(/^"([a-zA-Z_][a-zA-Z_0-9]*)"$/)) {
+      name = name.substr(1, name.length - 2);
+      name = ctx.stylize(name, 'name');
+    } else {
+      name = name.replace(/'/g, "\\'")
+                 .replace(/\\"/g, '"')
+                 .replace(/(^"|"$)/g, "'");
+      name = ctx.stylize(name, 'string');
+    }
+  }
+
+  return name + ': ' + str;
+}
+
+
+function reduceToSingleString(output, base, braces) {
+  var numLinesEst = 0;
+  var length = output.reduce(function(prev, cur) {
+    numLinesEst++;
+    if (cur.indexOf('\n') >= 0) numLinesEst++;
+    return prev + cur.replace(/\u001b\[\d\d?m/g, '').length + 1;
+  }, 0);
+
+  if (length > 60) {
+    return braces[0] +
+           (base === '' ? '' : base + '\n ') +
+           ' ' +
+           output.join(',\n  ') +
+           ' ' +
+           braces[1];
+  }
+
+  return braces[0] + base + ' ' + output.join(', ') + ' ' + braces[1];
+}
+
+
+// NOTE: These type checking functions intentionally don't use `instanceof`
+// because it is fragile and can be easily faked with `Object.create()`.
+function isArray(ar) {
+  return Array.isArray(ar);
+}
+exports.isArray = isArray;
+
+function isBoolean(arg) {
+  return typeof arg === 'boolean';
+}
+exports.isBoolean = isBoolean;
+
+function isNull(arg) {
+  return arg === null;
+}
+exports.isNull = isNull;
+
+function isNullOrUndefined(arg) {
+  return arg == null;
+}
+exports.isNullOrUndefined = isNullOrUndefined;
+
+function isNumber(arg) {
+  return typeof arg === 'number';
+}
+exports.isNumber = isNumber;
+
+function isString(arg) {
+  return typeof arg === 'string';
+}
+exports.isString = isString;
+
+function isSymbol(arg) {
+  return typeof arg === 'symbol';
+}
+exports.isSymbol = isSymbol;
+
+function isUndefined(arg) {
+  return arg === void 0;
+}
+exports.isUndefined = isUndefined;
+
+function isRegExp(re) {
+  return isObject(re) && objectToString(re) === '[object RegExp]';
+}
+exports.isRegExp = isRegExp;
+
+function isObject(arg) {
+  return typeof arg === 'object' && arg !== null;
+}
+exports.isObject = isObject;
+
+function isDate(d) {
+  return isObject(d) && objectToString(d) === '[object Date]';
+}
+exports.isDate = isDate;
+
+function isError(e) {
+  return isObject(e) &&
+      (objectToString(e) === '[object Error]' || e instanceof Error);
+}
+exports.isError = isError;
+
+function isFunction(arg) {
+  return typeof arg === 'function';
+}
+exports.isFunction = isFunction;
+
+function isPrimitive(arg) {
+  return arg === null ||
+         typeof arg === 'boolean' ||
+         typeof arg === 'number' ||
+         typeof arg === 'string' ||
+         typeof arg === 'symbol' ||  // ES6 symbol
+         typeof arg === 'undefined';
+}
+exports.isPrimitive = isPrimitive;
+
+exports.isBuffer = require('./support/isBuffer');
+
+function objectToString(o) {
+  return Object.prototype.toString.call(o);
+}
+
+
+function pad(n) {
+  return n < 10 ? '0' + n.toString(10) : n.toString(10);
+}
+
+
+var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep',
+              'Oct', 'Nov', 'Dec'];
+
+// 26 Feb 16:19:34
+function timestamp() {
+  var d = new Date();
+  var time = [pad(d.getHours()),
+              pad(d.getMinutes()),
+              pad(d.getSeconds())].join(':');
+  return [d.getDate(), months[d.getMonth()], time].join(' ');
+}
+
+
+// log is just a thin wrapper to console.log that prepends a timestamp
+exports.log = function() {
+  console.log('%s - %s', timestamp(), exports.format.apply(exports, arguments));
+};
+
+
+/**
+ * Inherit the prototype methods from one constructor into another.
+ *
+ * The Function.prototype.inherits from lang.js rewritten as a standalone
+ * function (not on Function.prototype). NOTE: If this file is to be loaded
+ * during bootstrapping this function needs to be rewritten using some native
+ * functions as prototype setup using normal JavaScript does not work as
+ * expected during bootstrapping (see mirror.js in r114903).
+ *
+ * @param {function} ctor Constructor function which needs to inherit the
+ *     prototype.
+ * @param {function} superCtor Constructor function to inherit prototype from.
+ */
+exports.inherits = require('inherits');
+
+exports._extend = function(origin, add) {
+  // Don't do anything if add isn't an object
+  if (!add || !isObject(add)) return origin;
+
+  var keys = Object.keys(add);
+  var i = keys.length;
+  while (i--) {
+    origin[keys[i]] = add[keys[i]];
+  }
+  return origin;
+};
+
+function hasOwnProperty(obj, prop) {
+  return Object.prototype.hasOwnProperty.call(obj, prop);
+}
+
+}).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{"./support/isBuffer":5,"_process":4,"inherits":3}],7:[function(require,module,exports){
 var util = require('util')
 var css = require('dom-css')
+var fs = require('fs');
 var grid = require('./pixels')
 var parse = require('parse-color')
 var position = require('mouse-position')
@@ -8,178 +821,372 @@ var mousetrap = require('mousetrap')
 var gaussian = require('gaussian')
 var Rands = require('rands')
 var seedrandom = require('seedrandom')
-const uuidv4 = require('uuid/v4')
+var uuidv4 = require('uuid/v4')
 
-function ACSG (g) {
-  if (!(this instanceof ACSG)) return new ACSG(g)
-  var self = this
+var GREEN = [0.51, 0.95, 0.61]
+var BLUE = [0.50, 0.86, 1.00]
+var YELLOW = [1.00, 0.86, 0.50]
+var BLACK = [0, 0, 0]
+var GRAY = [0.1, 0.1, 0.1]
 
-  // Check if this is a new game or a replay.
-  if (g.id) {          // A replay.
-    this.UUID = g.id
-    actions = g.data.actions
-    actionTimestamps = g.data.timestamps
-    opts = g.config
-    replay = true
-  } else {             // A new game.
-    opts = g.config || {}
-    opts.NUM_PLAYERS = opts.NUM_PLAYERS || 10
-    opts.INCLUDE_HUMAN = opts.INCLUDE_HUMAN || false
-    opts.DURATION = opts.DURATION || 120
-    opts.ROWS = opts.ROWS || 25
-    opts.COLUMNS = opts.COLUMNS || 25
-    opts.NUM_FOOD = opts.NUM_FOOD || 5
-    opts.VISIBILITY = opts.VISIBILITY || 500
-    opts.BOT_MOTION_RATE = opts.BOT_MOTION_RATE || 8
-    opts.BLOCK_SIZE = opts.BLOCK_SIZE || 15
-    opts.BLOCK_PADDING = opts.BLOCK_PADDING || 1
-    opts.SEED = opts.SEED || performance.now()
-    opts.BOT_STRATEGY = opts.BOT_STRATEGY || 'random'
-    this.UUID = uuidv4()
-    replay = false
-    actions = []
-    actionTimestamps = []
+var teamColors = [BLUE, YELLOW]
+
+function arraysEqual (arr1, arr2) {
+  for (var i = arr1.length; i--;) {
+    if (arr1[i] !== arr2[i]) {
+      return false
+    }
+  }
+  return true
+}
+
+function distance (x, y, xx, yy) {
+  return Math.sqrt((xx - x) * (xx - x) + (yy - y) * (yy - y))
+}
+
+function extend(obj, src) {
+  for (var key in src) {
+    if (src.hasOwnProperty(key)) obj[key] = src[key];
+  }
+  return obj;
+}
+
+function filenameFrom(data) {
+  var experimentID = data.id
+  return experimentID + '-decompressed.json'
+}
+
+var acsg = {}  // Module namespace
+
+acsg.Browser = (function () {
+
+  var Browser = function (opts) {
+      if (!(this instanceof Browser)) {
+          return new Browser(opts);
+      }
+      // Seed background animation RNG.
+      var backgroundRngFunc = seedrandom(this.now())
+      this.rBackground = new Rands(backgroundRngFunc)
+      this.scoreboard = document.getElementById('score')
+      this.clock = document.getElementById('clock')
+      this.data = []
+      this.background = []
+      this.opts = opts
+
+      for (var i = 0; i < opts.ROWS; i++) {
+        for (var j = 0; j < opts.COLUMNS; j++) {
+          this.data.push(BLACK)
+          this.background.push(BLACK)
+        }
+      }
+
+      this.pixels = grid(this.data, {
+        root: document.body,
+        rows: opts.ROWS,
+        columns: opts.COLUMNS,
+        size: opts.BLOCK_SIZE,
+        padding: opts.BLOCK_PADDING,
+        background: GRAY,
+        formatted: true
+      })
   }
 
-  // Seed event RNG.
-  Math.seedrandom(opts.SEED)
-  var r = new Rands()
-
-  // Seed background animation RNG.
-  var backgroundRngFunc = seedrandom(performance.now())
-  var rBackground = new Rands(backgroundRngFunc)
-
-  if (opts.INCLUDE_HUMAN) {
-    this._NUM_BOTS = opts.NUM_PLAYERS - 1
-  } else {
-    this._NUM_BOTS = opts.NUM_PLAYERS
+  Browser.prototype.now = function () {
+    return performance.now()
   }
 
-  GREEN = [0.51, 0.95, 0.61]
+  Browser.prototype.updateScoreboard = function (score) {
+    this.scoreboard.innerHTML = score
+  }
 
-  teamColors = [
-    [0.50, 0.86, 1.00], // Blue
-    [1.00, 0.86, 0.50]  // Yellow
-  ]
+  Browser.prototype.updateClock = function (t) {
+    this.clock.innerHTML = ((t > 0) ? t.toFixed(1) : '0.0')
+  }
 
-  food = []
-  players = []
-  this.players = players
-  states = []
-  gameOver = false
-
-  var data = []
-  var background = []
-  for (var i = 0; i < opts.ROWS; i++) {
-    for (var j = 0; j < opts.COLUMNS; j++) {
-      data.push([0, 0, 0])
-      background.push([0, 0, 0])
+  Browser.prototype.draw = function (position, color) {
+    // Covert x, y to linear index
+    index = position[0] * this.opts.COLUMNS + position[1]
+    this.data[index] = color
+  }
+  /**
+   * If in real-time mode, for every screen refresh update,
+   * call the callback function with the actual current timestamp.
+   *
+   * If we're not in real-time mode, return a timestamp that's later than
+   * the end of the experiment being replayed, so it executes all actions
+   * as fast as possible.
+   *
+   * See:
+   * https://github.com/regl-project/regl/blob/gh-pages/API.md#per-frame-callbacks
+   */
+  Browser.prototype.eventStream = function (callback) {
+    var self = this
+    if (! this.opts.REAL_TIME) {
+      // Jump to the end of the game, so we process all events immediately
+      var afterGameOver = (this.now() + this.opts.DURATION + 1) * 1000
+      this.pixels.frame(function (){ callback(afterGameOver) })
+    } else {
+      var self = this
+      this.pixels.frame(function (){ callback(self.now()) })
     }
   }
 
-  var pixels = grid(data, {
-    root: document.body,
-    rows: opts.ROWS,
-    columns: opts.COLUMNS,
-    size: opts.BLOCK_SIZE,
-    padding: opts.BLOCK_PADDING,
-    background: [0.1, 0.1, 0.1],
-    formatted: true
-  })
-
-  this.serialize = function () {
-    return JSON.stringify({
-      'id': this.UUID,
-      'data': {
-        'actions': actions,
-        'timestamps': actionTimestamps
-      },
-      'config': opts
-    })
-  }
-
-  this.serialize2 = function () {
-    return JSON.stringify({
-      'id': this.UUID,
-      'data': {
-        'actions': actions,
-        'timestamps': actionTimestamps
-      },
-      'config': opts,
-      'states': states,
-      'players': players,
-      'food': food
-    })
-  }
-
-  // // Download the serialized game as a JSON file.
-  this.download = function () {
-    var blob = new Blob([this.serialize2()], {type: 'application/json'})
-    var url = URL.createObjectURL(blob)
-    var el = document.createElement('a')
-    el.style.display = 'none'
-    el.id = 'downloadAnchorElem'
-    el.href = url
-    el.download = 'game.json'
-    el.textContent = 'Download backup.json'
-    document.body.appendChild(el)
-    el.click()
-  }
-
-  state = function (t) {
-    s = {
-      'timestamp': t,
-      'players': players,
-      'food': food
+  Browser.prototype.updateBackground = function () {
+    for (var i = 0; i < this.data.length; i++) {
+      rand = this.rBackground.uniform() * 0.02
+      this.background[i] = [
+        this.background[i][0] * 0.95 + rand,
+        this.background[i][1] * 0.95 + rand,
+        this.background[i][2] * 0.95 + rand
+      ]
     }
-    return s
+    this.data = this.background
   }
 
-  function randomPosition () {
+  Browser.prototype.updateMask = function (ego) {
+    var g = gaussian(0, Math.pow(this.opts.VISIBILITY, 2))
+    rescaling = 1 / g.pdf(0)
+    x = ego.position[0]
+    y = ego.position[1]
+    for (var i = 0; i < this.opts.COLUMNS; i++) {
+      for (var j = 0; j < this.opts.ROWS; j++) {
+        dimness = g.pdf(distance(x, y, i, j)) * rescaling
+        idx = (i * this.opts.COLUMNS + j)
+        this.data[idx] = [
+          this.data[idx][0] * dimness,
+          this.data[idx][1] * dimness,
+          this.data[idx][2] * dimness
+        ]
+      }
+    }
+  }
+
+  Browser.prototype.updateData = function () {
+    this.pixels.update(this.data)
+  }
+
+  Browser.prototype.exportFile = function (data, filename) {
+      var blob = new Blob([JSON.stringify(data)], {type: 'application/json'})
+      var url = URL.createObjectURL(blob)
+      var el = document.createElement('a')
+      el.style.display = 'none'
+      el.id = 'downloadAnchorElem'
+      el.href = url
+      el.download = filename
+      el.textContent = 'Download ' + filename
+      document.body.appendChild(el)
+      el.click()
+  }
+
+  return Browser
+}())
+
+
+acsg.FakeBrowser = (function () {
+
+  var FakeBrowser = function (opts) {
+      if (!(this instanceof FakeBrowser)) {
+          return new FakeBrowser(opts);
+      }
+
+      this.opts = opts
+      this._performance = require('perf_hooks')
+  }
+
+  FakeBrowser.prototype.now = function () {
+    return this._performance.performance.now()
+  }
+
+  FakeBrowser.prototype.updateScoreboard = function (score) {
+    // Noop
+  }
+
+  FakeBrowser.prototype.updateClock = function (t) {
+    // Noop
+  }
+
+  FakeBrowser.prototype.draw = function (position, color) {
+    // Noop
+  }
+
+  FakeBrowser.prototype.eventStream = function (callback) {
+    var afterGameOver = (this.now() + this.opts.DURATION + 1) * 1000
+    callback(afterGameOver)
+  }
+
+  FakeBrowser.prototype.updateBackground = function () {
+    // Noop
+  }
+
+  FakeBrowser.prototype.updateMask = function (ego) {
+    // Noop
+  }
+
+  FakeBrowser.prototype.updateData = function () {
+    // Noop
+  }
+
+  FakeBrowser.prototype.exportFile = function (data, filename) {
+    var content = JSON.stringify(data)
+    fs.writeFileSync('data/' + filename, content, function (err) {
+      if (err) throw err;
+    });
+  }
+
+  return FakeBrowser
+}())
+
+
+acsg.World = (function () {
+
+  var World = function (settings) {
+      if (!(this instanceof World)) {
+          return new World(settings)
+      }
+
+      this.rows = settings.ROWS
+      this.columns = settings.COLUMNS
+      this.browser = settings.browser
+      this.botStrategy = settings.BOT_STRATEGY
+      this.food = []
+      this.players = []
+      this.states = []
+  };
+
+  World.prototype.randomPosition = function () {
     empty = false
     while (!empty) {
       position = [
-        Math.floor(Math.random() * opts.ROWS),
-        Math.floor(Math.random() * opts.COLUMNS)
+        Math.floor(Math.random() * this.rows),
+        Math.floor(Math.random() * this.columns)
       ]
-      empty = isEmpty(position)
+      empty = this.isEmpty(position)
     }
     return position
-  }
+  };
 
-  function hasPlayer (position) {
-    for (var i = 0; i < players.length; i++) {
-      if (arraysEqual(players[i].position, position)) {
+  World.prototype.hasPlayer = function (position) {
+    var numPlayers = this.players.length
+    for (var i = 0; i < numPlayers; i++) {
+      if (arraysEqual(this.players[i].position, position)) {
         return true
       }
     }
     return false
   }
 
-  function hasFood (position) {
-    for (var i = 0; i < food.length; i++) {
-      if (food[i].position === position) {
+  World.prototype.hasFood = function (position) {
+    var numFood = this.food.length
+    for (var i = 0; i < numFood; i++) {
+      if (this.food[i].position === position) {
         return true
       }
     }
     return false
   }
 
-  function isEmpty (position) {
-    return !hasPlayer(position) && !hasFood(position)
+  World.prototype.isEmpty = function (position) {
+    return !this.hasPlayer(position) && !this.hasFood(position)
   }
+
+  World.prototype.spawnFood = function () {
+    this.food.push(new acsg.Food({'world': this}))
+  }
+
+  World.prototype.spawnPlayer = function () {
+    this.players.push(new acsg.Player({'world': this}))
+  }
+
+  World.prototype.spawnBot = function () {
+    this.players.push(new acsg.Bot({'world': this}))
+  }
+
+  World.prototype.ego = function () {
+    return this.players[0]
+  }
+
+  World.prototype.recordState = function (timestamp) {
+    this.states.push(this.state(timestamp))
+  }
+
+  World.prototype.state = function (t) {
+    s = {
+      'timestamp': t,
+      'players': this.players,
+      'food': this.food
+    }
+    return acsg.State(s)
+  }
+
+  World.prototype.serialize = function () {
+    var players = []
+        ,food = []
+        ,states = []
+
+    for(var i = 0; i < this.players.length; i++) {
+      players.push(this.players[i].serialize())
+    }
+    for(var i = 0; i < this.food.length; i++) {
+      food.push(this.food[i].serialize())
+    }
+    for(var i = 0; i < this.states.length; i++) {
+      states.push(this.states[i].serialize())
+    }
+    return {
+      players: players,
+      food: food,
+      states: states
+    }
+  }
+
+  return World;
+}());
+
+acsg.State = (function () {
+  State = function (config) {
+    if (!(this instanceof State)) {
+      return new State(config)
+    }
+    this.timestamp = config.timestamp
+    // XXX Could we just store the serialized versions here?
+    this.players = config.players
+    this.food = config.food
+  }
+
+  State.prototype.serialize = function () {
+    var players = []
+        ,food = []
+
+    for(var i = 0; i < this.players.length; i++) {
+      players.push(this.players[i].serialize())
+    }
+    for(var i = 0; i < this.food.length; i++) {
+      food.push(this.food[i].serialize())
+    }
+
+    return {
+      timestamp: this.timestamp,
+      players: players,
+      food: food
+    }
+  }
+
+  return State
+}())
+
+acsg.Player = (function () {
 
   Player = function (config) {
     if (!(this instanceof Player)) {
-      return new Player()
+      return new Player(config)
     }
-    config = config || {}
-    this.id = config.id || players.length
-    this.position = config.position || randomPosition()
+    this.world = config.world
+    this.id = this.world.players.length
+    this.position = this.world.randomPosition()
     this.teamIdx = Math.floor(Math.random() * teamColors.length)
     this.color = config.color || teamColors[this.teamIdx]
     this.score = config.score || 0
-    this.bot = config.bot || false
+
     return this
   }
 
@@ -193,7 +1200,7 @@ function ACSG (g) {
         break
 
       case 'down':
-        if (this.position[0] < opts.ROWS - 1) {
+        if (this.position[0] < this.world.rows - 1) {
           newPosition[0] += 1
         }
         break
@@ -205,7 +1212,7 @@ function ACSG (g) {
         break
 
       case 'right':
-        if (this.position[1] < opts.COLUMNS - 1) {
+        if (this.position[1] < this.world.columns - 1) {
           newPosition[1] += 1
         }
         break
@@ -213,40 +1220,54 @@ function ACSG (g) {
       default:
         console.log('Direction not recognized.')
     }
-    if (!hasPlayer(newPosition)) {
+    if (!this.world.hasPlayer(newPosition)) {
       this.position = newPosition
     }
+    return direction
   }
 
   Player.prototype.consume = function (t) {
-    for (var i = 0; i < food.length; i++) {
-      if (arraysEqual(this.position, food[i].position)) {
-        food.splice(i, 1)
-        spawnFood()
+    for (var i = 0; i < this.world.food.length; i++) {
+      if (arraysEqual(this.position, this.world.food[i].position)) {
+        this.world.food.splice(i, 1)
+        this.world.spawnFood()
         this.score++
-        updateScoreboard()
         break
       }
     }
+    return this.score
   }
 
-  //
-  // Bots.
-  //
+  Player.prototype.serialize = function () {
+    return {
+      id: this.id,
+      position: this.position,
+      teamIdx: this.teamIdx,
+      color: this.color,
+      score: this.score,
+      bot: false
+    }
+  }
+  return Player
+}())
 
-  Bot = function (config) {
-    Player.call(this, config)
-    this.bot = true
+acsg.Bot = (function () {
+
+  var Bot = function (config) {
+      if (!(this instanceof Bot)) {
+          return new Bot(config)
+      }
+
+      acsg.Player.call(this, config)
+      this.strategyName = this.world.botStrategy
   }
 
   Bot.prototype = Object.create(Player.prototype)
 
   Bot.prototype.move = function () {
-    if (opts.BOT_STRATEGY == 'random') {
-      direction = this.strategy.random()
-    }
-    botActions.push(direction)
+    var direction = this.strategy[this.strategyName]()
     Player.prototype.move.call(this, direction)
+    return direction
   }
 
   Bot.prototype.strategy = {}
@@ -256,64 +1277,174 @@ function ACSG (g) {
     return dirs[Math.floor(Math.random() * dirs.length)]
   }
 
-  // Create the human.
-  if (opts.INCLUDE_HUMAN) {
-    players.push(new Player())
+  Bot.prototype.serialize = function () {
+    var data = acsg.Player.prototype.serialize.call(this)
+    data.bot = true
+    return data
   }
 
-  // Create the bots.
-  for (var i = 0; i < this._NUM_BOTS; i++) {
-    players.push(new Bot())
-  }
+  return Bot
+}());
 
-  ego = players[0]
-
-  Food = function (config) {
+acsg.Food = (function () {
+  var Food = function (config) {
     if (!(this instanceof Food)) {
-      return new Food()
+      return new Food(config)
     }
-    config = config || {}
-    this.position = config.position || randomPosition()
+    this.world = config.world
+    this.position = config.position || this.world.randomPosition()
     this.color = config.color || GREEN
     return this
   }
 
-  for (var i = 0; i < opts.NUM_FOOD; i++) {
-    spawnFood()
+  Food.prototype.serialize = function () {
+    return {
+      position: this.position,
+      color: this.color,
+    }
+  }
+  return Food
+}())
+
+
+acsg.Game = (function () {
+
+  var Game = function (g) {
+    if (!(this instanceof Game)) return new Game(g)
+
+    // Check if this is a new game or a replay.
+    if (g.id) {          // A replay.
+      this.UUID = g.id
+      this.actions = g.data.actions
+      this.actionTimestamps = g.data.timestamps
+      this.opts = g.config
+      this.replay = true
+      this.opts.REAL_TIME = g.config.REAL_TIME || false
+    } else {             // A new game.
+      this.opts = opts = g.config || {}
+      this.opts.REAL_TIME = true
+      this.opts.NUM_PLAYERS = opts.NUM_PLAYERS || 10
+      this.opts.INCLUDE_HUMAN = opts.INCLUDE_HUMAN || false
+      this.opts.DURATION = opts.DURATION || 120
+      this.opts.ROWS = opts.ROWS || 25
+      this.opts.COLUMNS = opts.COLUMNS || 25
+      this.opts.NUM_FOOD = opts.NUM_FOOD || 5
+      this.opts.VISIBILITY = opts.VISIBILITY || 500
+      this.opts.BOT_MOTION_RATE = opts.BOT_MOTION_RATE || 8
+      this.opts.BLOCK_SIZE = opts.BLOCK_SIZE || 15
+      this.opts.BLOCK_PADDING = opts.BLOCK_PADDING || 1
+      this.opts.BOT_STRATEGY = opts.BOT_STRATEGY || 'random'
+      this.UUID = uuidv4()
+      this.replay = false
+      this.actions = []
+      this.actionTimestamps = []
+    }
+    if (this.opts.IS_CLI) {
+      this.browser = acsg.FakeBrowser(this.opts)
+    } else {
+      this.browser = acsg.Browser(this.opts)
+    }
+
+    if (this.opts.INCLUDE_HUMAN) {
+      this.numBots = this.opts.NUM_PLAYERS - 1
+    } else {
+      this.numBots = this.opts.NUM_PLAYERS
+    }
+    this.opts.SEED = this.opts.SEED || this.browser.now()
+
+    // Seed event RNG.
+    Math.seedrandom(this.opts.SEED)
+    this.eventRandomizer = new Rands()
+
+    this.gameOver = false
+    this.world = acsg.World(this.opts)
+
+    // Create the human.
+    if (this.opts.INCLUDE_HUMAN) {
+      this.world.spawnPlayer()
+    }
+
+    // Create the bots.
+    for (var i = 0; i < this.numBots; i++) {
+      this.world.spawnBot()
+    }
+
+    ego = this.world.ego()
+
+    for (var i = 0; i < this.opts.NUM_FOOD; i++) {
+      this.world.spawnFood()
+    }
+
+    //
+    // Key bindings
+    //
+    if (this.opts.INCLUDE_HUMAN && !this.opts.IS_CLI) {
+      directions = ['up', 'down', 'left', 'right']
+      lock = false
+      directions.forEach(function (direction) {
+        Mousetrap.bind(direction, function () {
+          if (!lock && !self.gameOver) {
+            self.actions.push(direction)
+          }
+          lock = true
+          return false
+        })
+        Mousetrap.bind(direction, function () {
+          lock = false
+          return false
+        }, 'keyup')
+      })
+    }
+
   }
 
-  function spawnFood () {
-    food.push(new Food())
+  Game.prototype.serializeActions = function () {
+    return JSON.stringify({
+      'id': this.UUID,
+      'data': {
+        'actions': this.actions,
+        'timestamps': this.actionTimestamps
+      },
+      'config': opts
+    })
   }
 
-  function updateScoreboard () {
-    document.getElementById('score').innerHTML = players[0].score
+  Game.prototype.serializeFullState = function () {
+    var data = {
+      'id': this.UUID,
+      'data': {
+        'actions': this.actions,
+        'timestamps': this.actionTimestamps
+      },
+      'config': this.opts,
+    }
+    data = extend(data, this.world.serialize())
+    return data
   }
 
-  function updateClock (t) {
-    document.getElementById('clock').innerHTML = ((t > 0) ? t.toFixed(1) : '0.0')
-  }
-
-  this.run = function (callback) {
+  Game.prototype.run = function (callback) {
     callback = callback || function () { console.log('Game finished.') }
-    start = performance.now()
+    start = this.browser.now()
 
-    states.push(state(0))
+    this.world.recordState(0)
 
-    // Pregenerate bot motion timings, sans direction.
+    // Pregenerate bot motion timings, sans direction. Since the timing and
+    // direction of all bot movement is deterministic based on the seed
+    // to the random number generator, we can pregenerate a sequence of
+    // time+bot pairs to execute later.
     botActionTimestamps = []
     botActions = []
     whichBotMoves = []
     t = 0
-    humanOffset = opts.INCLUDE_HUMAN ? 1 : 0
+    humanOffset = this.opts.INCLUDE_HUMAN ? 1 : 0
     while (true) {
-      waitTime = r.exponential(opts.BOT_MOTION_RATE * this._NUM_BOTS)
-      if (t + waitTime > opts.DURATION) {
+      waitTime = this.eventRandomizer.exponential(this.opts.BOT_MOTION_RATE * this.numBots)
+      if (t + waitTime > this.opts.DURATION) {
         break
       }
       t += waitTime
       botActionTimestamps.push(t)
-      idx = Math.floor(Math.random() * this._NUM_BOTS) + humanOffset
+      idx = Math.floor(Math.random() * this.numBots) + humanOffset
       whichBotMoves.push(idx)
     }
     lastBotActionIdx = -1
@@ -322,21 +1453,24 @@ function ACSG (g) {
     lastHumanActionTimestamp = 0
 
     completed = false
-    pixels.frame(function () {
-      elapsedTime = (performance.now() - start) / 1000
+    self = this
+    players = self.world.players
+    this.browser.eventStream(function (now) {
+      elapsedTime = (now - start) / 1000
 
-      // If original game w/ human, register all moves.
-      if (opts.INCLUDE_HUMAN && !replay) {
-        numActionsToDo = actions.length - actionTimestamps.length
+      // If original game w/ human player, register any human moves
+      // added to the actions list with the current tick's timestamp
+      if (self.opts.INCLUDE_HUMAN && !self.replay) {
+        numActionsToDo = self.actions.length - self.actionTimestamps.length
         for (var i = 0; i < numActionsToDo; i++) {
-          actionTimestamps.push(elapsedTime)
+          self.actionTimestamps.push(elapsedTime)
         }
       }
 
       // Execute all unexecuted actions up to elapsedTime.
       while (true) {
         nextBotT = botActionTimestamps[lastBotActionIdx + 1] || Infinity
-        nextHumanT = actionTimestamps[lastHumanActionIdx + 1] || Infinity
+        nextHumanT = self.actionTimestamps[lastHumanActionIdx + 1] || Infinity
 
         if (nextBotT > elapsedTime && nextHumanT > elapsedTime) {
           break
@@ -346,104 +1480,58 @@ function ACSG (g) {
           // Carry out bot action.
           lastBotActionIdx += 1
           currentBot = players[whichBotMoves[lastBotActionIdx]]
-          currentBot.move()
+          botActions.push(currentBot.move())
           currentBot.consume()
-          states.push(this.state(nextBotT))
+          self.world.recordState(nextBotT)
         } else {
           // Carry out human action.
           lastHumanActionIdx += 1
-          players[0].move(actions[lastHumanActionIdx])
-          players[0].consume()
-          states.push(this.state(nextHumanT))
+          players[0].move(self.actions[lastHumanActionIdx])
+          score = players[0].consume()
+          self.browser.updateScoreboard(score)
+          self.world.recordState(nextHumanT)
         }
       }
 
-      // Update the background.
-      for (var i = 0; i < data.length; i++) {
-        rand = rBackground.uniform() * 0.02
-        background[i] = [
-          background[i][0] * 0.95 + rand,
-          background[i][1] * 0.95 + rand,
-          background[i][2] * 0.95 + rand
-        ]
-      }
-      data = background
+      self.browser.updateBackground()
 
-      // Draw the players.
-      players.forEach(function (p) {
-        data[(p.position[0]) * opts.COLUMNS + p.position[1]] = p.color
+      // Draw the players and food
+      self.world.players.forEach(function (p) {
+        self.browser.draw(p.position, p.color)
       })
-      food.forEach(function (f) {
-        data[(f.position[0]) * opts.COLUMNS + f.position[1]] = f.color
+      self.world.food.forEach(function (f) {
+        self.browser.draw(f.position, f.color)
       })
 
-      // Update the clock.
-      updateClock(opts.DURATION - elapsedTime)
+      // Update the UI
+      self.browser.updateClock(self.opts.DURATION - elapsedTime)
+      self.browser.updateMask(ego)
+      self.browser.updateData()
 
-      // Add the Gaussian mask.
-      var g = gaussian(0, Math.pow(opts.VISIBILITY, 2))
-      rescaling = 1 / g.pdf(0)
-      x = ego.position[0]
-      y = ego.position[1]
-      for (var i = 0; i < opts.COLUMNS; i++) {
-        for (var j = 0; j < opts.ROWS; j++) {
-          dimness = g.pdf(distance(x, y, i, j)) * rescaling
-          idx = (i * opts.COLUMNS + j)
-          data[idx] = [
-            data[idx][0] * dimness,
-            data[idx][1] * dimness,
-            data[idx][2] * dimness
-          ]
+      if (lastBotActionIdx >= whichBotMoves.length - 1) {
+        if (!self.gameOver) {
+          self.gameOver = true
+          callback()
         }
-      }
-
-      if (lastBotActionIdx < whichBotMoves.length - 1) {
-        pixels.update(data)
-      } else if (!gameOver) {
-        gameOver = true
-        callback()
       }
     })
   }
 
-  //
-  // Key bindings
-  //
-  if (opts.INCLUDE_HUMAN) {
-    directions = ['up', 'down', 'left', 'right']
-    lock = false
-    directions.forEach(function (direction) {
-      Mousetrap.bind(direction, function () {
-        if (!lock && !gameOver) {
-          actions.push(direction)
-        }
-        lock = true
-        return false
-      })
-      Mousetrap.bind(direction, function () {
-        lock = false
-        return false
-      }, 'keyup')
-    })
+  // Download the serialized game as a JSON file.
+  Game.prototype.exportFullGameData = function () {
+    var data = this.serializeFullState(),
+        filename = filenameFrom(data)
+
+    self.browser.exportFile(data, filename)
+    return filename
   }
 
-  function arraysEqual (arr1, arr2) {
-    for (var i = arr1.length; i--;) {
-      if (arr1[i] !== arr2[i]) {
-        return false
-      }
-    }
-    return true
-  }
+  return Game
+}())
 
-  function distance (x, y, xx, yy) {
-    return Math.sqrt((xx - x) * (xx - x) + (yy - y) * (yy - y))
-  }
-}
+module.exports = acsg
 
-module.exports = ACSG
-
-},{"./pixels":68,"dom-css":5,"gaussian":8,"mouse-position":14,"mousetrap":15,"parse-color":16,"rands":20,"seedrandom":54,"util":75,"uuid/v4":67}],2:[function(require,module,exports){
+},{"./pixels":74,"dom-css":11,"fs":1,"gaussian":14,"mouse-position":20,"mousetrap":21,"parse-color":22,"perf_hooks":1,"rands":26,"seedrandom":60,"util":6,"uuid/v4":73}],8:[function(require,module,exports){
 /* The following list is defined in React's core */
 var IS_UNITLESS = {
   animationIterationCount: true,
@@ -485,7 +1573,7 @@ module.exports = function(name, value) {
     return value;
   }
 };
-},{}],3:[function(require,module,exports){
+},{}],9:[function(require,module,exports){
 /* MIT license */
 
 module.exports = {
@@ -1185,7 +2273,7 @@ for (var key in cssKeywords) {
   reverseKeywords[JSON.stringify(cssKeywords[key])] = key;
 }
 
-},{}],4:[function(require,module,exports){
+},{}],10:[function(require,module,exports){
 var conversions = require("./conversions");
 
 var convert = function() {
@@ -1278,7 +2366,7 @@ Converter.prototype.getValues = function(space) {
 });
 
 module.exports = convert;
-},{"./conversions":3}],5:[function(require,module,exports){
+},{"./conversions":9}],11:[function(require,module,exports){
 var prefix = require('prefix-style')
 var toCamelCase = require('to-camel-case')
 var cache = { 'float': 'cssFloat' }
@@ -1341,7 +2429,7 @@ module.exports.get = function (element, properties) {
   }
 }
 
-},{"add-px-to-style":2,"prefix-style":17,"to-camel-case":62}],6:[function(require,module,exports){
+},{"add-px-to-style":8,"prefix-style":23,"to-camel-case":68}],12:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -1645,7 +2733,7 @@ function isUndefined(arg) {
   return arg === void 0;
 }
 
-},{}],7:[function(require,module,exports){
+},{}],13:[function(require,module,exports){
 module.exports = function flatten(list, depth) {
   depth = (typeof depth == 'number') ? depth : Infinity;
 
@@ -1670,7 +2758,7 @@ module.exports = function flatten(list, depth) {
   }
 };
 
-},{}],8:[function(require,module,exports){
+},{}],14:[function(require,module,exports){
 (function(exports) {
 
   // Complementary error function
@@ -1785,7 +2873,7 @@ module.exports = function flatten(list, depth) {
     ? function(e) { module.exports = e; }
     : function(e) { this["gaussian"] = e; });
 
-},{}],9:[function(require,module,exports){
+},{}],15:[function(require,module,exports){
 
 /**
  * isArray
@@ -1820,7 +2908,7 @@ module.exports = isArray || function (val) {
   return !! val && '[object Array]' == str.call(val);
 };
 
-},{}],10:[function(require,module,exports){
+},{}],16:[function(require,module,exports){
 /*!
  * Determine if an object is a Buffer
  *
@@ -1843,7 +2931,7 @@ function isSlowBuffer (obj) {
   return typeof obj.readFloatLE === 'function' && typeof obj.slice === 'function' && isBuffer(obj.slice(0, 0))
 }
 
-},{}],11:[function(require,module,exports){
+},{}],17:[function(require,module,exports){
 /*!
  * is-number <https://github.com/jonschlinkert/is-number>
  *
@@ -1864,7 +2952,7 @@ module.exports = function isNumber(num) {
   return (n - n + 1) >= 0 && num !== '';
 };
 
-},{"kind-of":13}],12:[function(require,module,exports){
+},{"kind-of":19}],18:[function(require,module,exports){
 'use strict';
 
 var strValue = String.prototype.valueOf;
@@ -1886,7 +2974,7 @@ module.exports = function isString(value) {
 	return hasToStringTag ? tryStringObject(value) : toStr.call(value) === strClass;
 };
 
-},{}],13:[function(require,module,exports){
+},{}],19:[function(require,module,exports){
 var isBuffer = require('is-buffer');
 var toString = Object.prototype.toString;
 
@@ -2004,7 +3092,7 @@ module.exports = function kindOf(val) {
   return 'object';
 };
 
-},{"is-buffer":10}],14:[function(require,module,exports){
+},{"is-buffer":16}],20:[function(require,module,exports){
 var Emitter = require('events/')
 
 module.exports = attach
@@ -2056,7 +3144,7 @@ function attach(element, listener) {
 
 }
 
-},{"events/":6}],15:[function(require,module,exports){
+},{"events/":12}],21:[function(require,module,exports){
 /*global define:false */
 /**
  * Copyright 2012-2017 Craig Campbell
@@ -3102,7 +4190,7 @@ function attach(element, listener) {
     }
 }) (typeof window !== 'undefined' ? window : null, typeof  window !== 'undefined' ? document : null);
 
-},{}],16:[function(require,module,exports){
+},{}],22:[function(require,module,exports){
 var convert = require('color-convert');
 
 module.exports = function (cstr) {
@@ -3187,7 +4275,7 @@ module.exports = function (cstr) {
     return res;
 };
 
-},{"color-convert":4}],17:[function(require,module,exports){
+},{"color-convert":10}],23:[function(require,module,exports){
 var div = null
 var prefixes = [ 'Webkit', 'Moz', 'O', 'ms' ]
 
@@ -3219,7 +4307,7 @@ module.exports = function prefixStyle (prop) {
   return false
 }
 
-},{}],18:[function(require,module,exports){
+},{}],24:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -3435,7 +4523,7 @@ function pow(x, n) {
 }
 
 exports.default = binom;
-},{}],19:[function(require,module,exports){
+},{}],25:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -3464,7 +4552,7 @@ function boxmuller(mean, stdev, n, rng) {
 }
 
 exports.default = boxmuller;
-},{}],20:[function(require,module,exports){
+},{}],26:[function(require,module,exports){
 'use strict';
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
@@ -3635,7 +4723,7 @@ function generate(f, length) {
 }
 
 module.exports = Rands;
-},{"./binom":18,"./boxmuller":19}],21:[function(require,module,exports){
+},{"./binom":24,"./boxmuller":25}],27:[function(require,module,exports){
 var GL_FLOAT = 5126
 
 function AttributeRecord () {
@@ -3674,7 +4762,7 @@ module.exports = function wrapAttributeState (
   }
 }
 
-},{}],22:[function(require,module,exports){
+},{}],28:[function(require,module,exports){
 var check = require('./util/check')
 var isTypedArray = require('./util/is-typed-array')
 var isNDArrayLike = require('./util/is-ndarray')
@@ -4051,7 +5139,7 @@ module.exports = function wrapBufferState (gl, stats, config) {
   }
 }
 
-},{"./constants/arraytypes.json":23,"./constants/dtypes.json":24,"./constants/usage.json":26,"./util/check":40,"./util/is-ndarray":45,"./util/is-typed-array":46,"./util/pool":48,"./util/values":51}],23:[function(require,module,exports){
+},{"./constants/arraytypes.json":29,"./constants/dtypes.json":30,"./constants/usage.json":32,"./util/check":46,"./util/is-ndarray":51,"./util/is-typed-array":52,"./util/pool":54,"./util/values":57}],29:[function(require,module,exports){
 module.exports={
   "[object Int8Array]": 5120
 , "[object Int16Array]": 5122
@@ -4065,7 +5153,7 @@ module.exports={
 , "[object ArrayBuffer]": 5121
 }
 
-},{}],24:[function(require,module,exports){
+},{}],30:[function(require,module,exports){
 module.exports={
   "int8": 5120
 , "int16": 5122
@@ -4077,7 +5165,7 @@ module.exports={
 , "float32": 5126
 }
 
-},{}],25:[function(require,module,exports){
+},{}],31:[function(require,module,exports){
 module.exports={
   "points": 0,
   "point": 0,
@@ -4091,14 +5179,14 @@ module.exports={
   "triangle fan": 6
 }
 
-},{}],26:[function(require,module,exports){
+},{}],32:[function(require,module,exports){
 module.exports={
   "static": 35044,
   "dynamic": 35048,
   "stream": 35040
 }
 
-},{}],27:[function(require,module,exports){
+},{}],33:[function(require,module,exports){
 var check = require('./util/check')
 var createEnvironment = require('./util/codegen')
 var loop = require('./util/loop')
@@ -7442,7 +8530,7 @@ module.exports = function reglCore (
   }
 }
 
-},{"./constants/dtypes.json":24,"./constants/primitives.json":25,"./dynamic":28,"./util/check":40,"./util/codegen":42,"./util/is-array-like":44,"./util/is-ndarray":45,"./util/is-typed-array":46,"./util/loop":47}],28:[function(require,module,exports){
+},{"./constants/dtypes.json":30,"./constants/primitives.json":31,"./dynamic":34,"./util/check":46,"./util/codegen":48,"./util/is-array-like":50,"./util/is-ndarray":51,"./util/is-typed-array":52,"./util/loop":53}],34:[function(require,module,exports){
 var VARIABLE_COUNTER = 0
 
 var DYN_FUNC = 0
@@ -7520,7 +8608,7 @@ module.exports = {
   accessor: toAccessorString
 }
 
-},{}],29:[function(require,module,exports){
+},{}],35:[function(require,module,exports){
 var check = require('./util/check')
 var isTypedArray = require('./util/is-typed-array')
 var isNDArrayLike = require('./util/is-ndarray')
@@ -7803,7 +8891,7 @@ module.exports = function wrapElementsState (gl, extensions, bufferState, stats)
   }
 }
 
-},{"./constants/primitives.json":25,"./constants/usage.json":26,"./util/check":40,"./util/is-ndarray":45,"./util/is-typed-array":46,"./util/values":51}],30:[function(require,module,exports){
+},{"./constants/primitives.json":31,"./constants/usage.json":32,"./util/check":46,"./util/is-ndarray":51,"./util/is-typed-array":52,"./util/values":57}],36:[function(require,module,exports){
 var check = require('./util/check')
 
 module.exports = function createExtensionCache (gl, config) {
@@ -7835,7 +8923,7 @@ module.exports = function createExtensionCache (gl, config) {
   }
 }
 
-},{"./util/check":40}],31:[function(require,module,exports){
+},{"./util/check":46}],37:[function(require,module,exports){
 var check = require('./util/check')
 var values = require('./util/values')
 var extend = require('./util/extend')
@@ -8717,7 +9805,7 @@ module.exports = function wrapFBOState (
   })
 }
 
-},{"./util/check":40,"./util/extend":43,"./util/values":51}],32:[function(require,module,exports){
+},{"./util/check":46,"./util/extend":49,"./util/values":57}],38:[function(require,module,exports){
 var GL_SUBPIXEL_BITS = 0x0D50
 var GL_RED_BITS = 0x0D52
 var GL_GREEN_BITS = 0x0D53
@@ -8811,7 +9899,7 @@ module.exports = function (gl, extensions) {
   }
 }
 
-},{}],33:[function(require,module,exports){
+},{}],39:[function(require,module,exports){
 var check = require('./util/check')
 var isTypedArray = require('./util/is-typed-array')
 
@@ -8925,7 +10013,7 @@ module.exports = function wrapReadPixels (
   return readPixels
 }
 
-},{"./util/check":40,"./util/is-typed-array":46}],34:[function(require,module,exports){
+},{"./util/check":46,"./util/is-typed-array":52}],40:[function(require,module,exports){
 var check = require('./util/check')
 var values = require('./util/values')
 
@@ -9157,7 +10245,7 @@ module.exports = function (gl, extensions, limits, stats, config) {
   }
 }
 
-},{"./util/check":40,"./util/values":51}],35:[function(require,module,exports){
+},{"./util/check":46,"./util/values":57}],41:[function(require,module,exports){
 var check = require('./util/check')
 var values = require('./util/values')
 
@@ -9368,7 +10456,7 @@ module.exports = function wrapShaderState (gl, stringStore, stats, config) {
   }
 }
 
-},{"./util/check":40,"./util/values":51}],36:[function(require,module,exports){
+},{"./util/check":46,"./util/values":57}],42:[function(require,module,exports){
 
 module.exports = function stats () {
   return {
@@ -9384,7 +10472,7 @@ module.exports = function stats () {
   }
 }
 
-},{}],37:[function(require,module,exports){
+},{}],43:[function(require,module,exports){
 module.exports = function createStringStore () {
   var stringIds = {'': 0}
   var stringValues = ['']
@@ -9405,7 +10493,7 @@ module.exports = function createStringStore () {
   }
 }
 
-},{}],38:[function(require,module,exports){
+},{}],44:[function(require,module,exports){
 var check = require('./util/check')
 var extend = require('./util/extend')
 var values = require('./util/values')
@@ -10974,7 +12062,7 @@ module.exports = function createTextureSet (
   }
 }
 
-},{"./constants/arraytypes.json":23,"./util/check":40,"./util/extend":43,"./util/is-array-like":44,"./util/is-ndarray":45,"./util/is-typed-array":46,"./util/pool":48,"./util/to-half-float":50,"./util/values":51}],39:[function(require,module,exports){
+},{"./constants/arraytypes.json":29,"./util/check":46,"./util/extend":49,"./util/is-array-like":50,"./util/is-ndarray":51,"./util/is-typed-array":52,"./util/pool":54,"./util/to-half-float":56,"./util/values":57}],45:[function(require,module,exports){
 var GL_QUERY_RESULT_EXT = 0x8866
 var GL_QUERY_RESULT_AVAILABLE_EXT = 0x8867
 var GL_TIME_ELAPSED_EXT = 0x88BF
@@ -11110,7 +12198,7 @@ module.exports = function (gl, extensions) {
   }
 }
 
-},{}],40:[function(require,module,exports){
+},{}],46:[function(require,module,exports){
 // Error checking and parameter validation.
 //
 // Statements for the form `check.someProcedure(...)` get removed by
@@ -11749,14 +12837,14 @@ module.exports = extend(check, {
   textureCube: checkTextureCube
 })
 
-},{"./extend":43,"./is-typed-array":46}],41:[function(require,module,exports){
+},{"./extend":49,"./is-typed-array":52}],47:[function(require,module,exports){
 /* globals performance */
 module.exports =
   (typeof performance !== 'undefined' && performance.now)
   ? function () { return performance.now() }
   : function () { return +(new Date()) }
 
-},{}],42:[function(require,module,exports){
+},{}],48:[function(require,module,exports){
 var extend = require('./extend')
 
 function slice (x) {
@@ -11940,7 +13028,7 @@ module.exports = function createEnvironment () {
   }
 }
 
-},{"./extend":43}],43:[function(require,module,exports){
+},{"./extend":49}],49:[function(require,module,exports){
 module.exports = function (base, opts) {
   var keys = Object.keys(opts)
   for (var i = 0; i < keys.length; ++i) {
@@ -11949,13 +13037,13 @@ module.exports = function (base, opts) {
   return base
 }
 
-},{}],44:[function(require,module,exports){
+},{}],50:[function(require,module,exports){
 var isTypedArray = require('./is-typed-array')
 module.exports = function isArrayLike (s) {
   return Array.isArray(s) || isTypedArray(s)
 }
 
-},{"./is-typed-array":46}],45:[function(require,module,exports){
+},{"./is-typed-array":52}],51:[function(require,module,exports){
 var isTypedArray = require('./is-typed-array')
 
 module.exports = function isNDArrayLike (obj) {
@@ -11970,13 +13058,13 @@ module.exports = function isNDArrayLike (obj) {
       isTypedArray(obj.data)))
 }
 
-},{"./is-typed-array":46}],46:[function(require,module,exports){
+},{"./is-typed-array":52}],52:[function(require,module,exports){
 var dtypes = require('../constants/arraytypes.json')
 module.exports = function (x) {
   return Object.prototype.toString.call(x) in dtypes
 }
 
-},{"../constants/arraytypes.json":23}],47:[function(require,module,exports){
+},{"../constants/arraytypes.json":29}],53:[function(require,module,exports){
 module.exports = function loop (n, f) {
   var result = Array(n)
   for (var i = 0; i < n; ++i) {
@@ -11985,7 +13073,7 @@ module.exports = function loop (n, f) {
   return result
 }
 
-},{}],48:[function(require,module,exports){
+},{}],54:[function(require,module,exports){
 var loop = require('./loop')
 
 var GL_BYTE = 5120
@@ -12079,7 +13167,7 @@ module.exports = {
   freeType: freeType
 }
 
-},{"./loop":47}],49:[function(require,module,exports){
+},{"./loop":53}],55:[function(require,module,exports){
 /* globals requestAnimationFrame, cancelAnimationFrame */
 if (typeof requestAnimationFrame === 'function' &&
     typeof cancelAnimationFrame === 'function') {
@@ -12096,7 +13184,7 @@ if (typeof requestAnimationFrame === 'function' &&
   }
 }
 
-},{}],50:[function(require,module,exports){
+},{}],56:[function(require,module,exports){
 var pool = require('./pool')
 
 var FLOAT = new Float32Array(1)
@@ -12142,12 +13230,12 @@ module.exports = function convertToHalfFloat (array) {
   return ushorts
 }
 
-},{"./pool":48}],51:[function(require,module,exports){
+},{"./pool":54}],57:[function(require,module,exports){
 module.exports = function (obj) {
   return Object.keys(obj).map(function (key) { return obj[key] })
 }
 
-},{}],52:[function(require,module,exports){
+},{}],58:[function(require,module,exports){
 // Context and canvas creation helper functions
 var check = require('./util/check')
 var extend = require('./util/extend')
@@ -12353,7 +13441,7 @@ module.exports = function parseArgs (args_) {
   }
 }
 
-},{"./util/check":40,"./util/extend":43}],53:[function(require,module,exports){
+},{"./util/check":46,"./util/extend":49}],59:[function(require,module,exports){
 var check = require('./lib/util/check')
 var extend = require('./lib/util/extend')
 var dynamic = require('./lib/dynamic')
@@ -12835,7 +13923,7 @@ module.exports = function wrapREGL (args) {
   return regl
 }
 
-},{"./lib/attribute":21,"./lib/buffer":22,"./lib/core":27,"./lib/dynamic":28,"./lib/elements":29,"./lib/extension":30,"./lib/framebuffer":31,"./lib/limits":32,"./lib/read":33,"./lib/renderbuffer":34,"./lib/shader":35,"./lib/stats":36,"./lib/strings":37,"./lib/texture":38,"./lib/timer":39,"./lib/util/check":40,"./lib/util/clock":41,"./lib/util/extend":43,"./lib/util/raf":49,"./lib/webgl":52}],54:[function(require,module,exports){
+},{"./lib/attribute":27,"./lib/buffer":28,"./lib/core":33,"./lib/dynamic":34,"./lib/elements":35,"./lib/extension":36,"./lib/framebuffer":37,"./lib/limits":38,"./lib/read":39,"./lib/renderbuffer":40,"./lib/shader":41,"./lib/stats":42,"./lib/strings":43,"./lib/texture":44,"./lib/timer":45,"./lib/util/check":46,"./lib/util/clock":47,"./lib/util/extend":49,"./lib/util/raf":55,"./lib/webgl":58}],60:[function(require,module,exports){
 // A library of seedable RNGs implemented in Javascript.
 //
 // Usage:
@@ -12897,7 +13985,7 @@ sr.tychei = tychei;
 
 module.exports = sr;
 
-},{"./lib/alea":55,"./lib/tychei":56,"./lib/xor128":57,"./lib/xor4096":58,"./lib/xorshift7":59,"./lib/xorwow":60,"./seedrandom":61}],55:[function(require,module,exports){
+},{"./lib/alea":61,"./lib/tychei":62,"./lib/xor128":63,"./lib/xor4096":64,"./lib/xorshift7":65,"./lib/xorwow":66,"./seedrandom":67}],61:[function(require,module,exports){
 // A port of an algorithm by Johannes Baagøe <baagoe@baagoe.com>, 2010
 // http://baagoe.com/en/RandomMusings/javascript/
 // https://github.com/nquinlan/better-random-numbers-for-javascript-mirror
@@ -13013,7 +14101,7 @@ if (module && module.exports) {
 
 
 
-},{}],56:[function(require,module,exports){
+},{}],62:[function(require,module,exports){
 // A Javascript implementaion of the "Tyche-i" prng algorithm by
 // Samuel Neves and Filipe Araujo.
 // See https://eden.dei.uc.pt/~sneves/pubs/2011-snfa2.pdf
@@ -13118,7 +14206,7 @@ if (module && module.exports) {
 
 
 
-},{}],57:[function(require,module,exports){
+},{}],63:[function(require,module,exports){
 // A Javascript implementaion of the "xor128" prng algorithm by
 // George Marsaglia.  See http://www.jstatsoft.org/v08/i14/paper
 
@@ -13201,7 +14289,7 @@ if (module && module.exports) {
 
 
 
-},{}],58:[function(require,module,exports){
+},{}],64:[function(require,module,exports){
 // A Javascript implementaion of Richard Brent's Xorgens xor4096 algorithm.
 //
 // This fast non-cryptographic random number generator is designed for
@@ -13349,7 +14437,7 @@ if (module && module.exports) {
   (typeof define) == 'function' && define   // present with an AMD loader
 );
 
-},{}],59:[function(require,module,exports){
+},{}],65:[function(require,module,exports){
 // A Javascript implementaion of the "xorshift7" algorithm by
 // François Panneton and Pierre L'ecuyer:
 // "On the Xorgshift Random Number Generators"
@@ -13448,7 +14536,7 @@ if (module && module.exports) {
 );
 
 
-},{}],60:[function(require,module,exports){
+},{}],66:[function(require,module,exports){
 // A Javascript implementaion of the "xorwow" prng algorithm by
 // George Marsaglia.  See http://www.jstatsoft.org/v08/i14/paper
 
@@ -13536,7 +14624,7 @@ if (module && module.exports) {
 
 
 
-},{}],61:[function(require,module,exports){
+},{}],67:[function(require,module,exports){
 /*
 Copyright 2014 David Bau.
 
@@ -13788,7 +14876,7 @@ if ((typeof module) == 'object' && module.exports) {
   Math    // math: package containing random, pow, and seedrandom
 );
 
-},{"crypto":71}],62:[function(require,module,exports){
+},{"crypto":2}],68:[function(require,module,exports){
 
 var space = require('to-space-case')
 
@@ -13811,7 +14899,7 @@ function toCamelCase(string) {
   })
 }
 
-},{"to-space-case":64}],63:[function(require,module,exports){
+},{"to-space-case":70}],69:[function(require,module,exports){
 
 /**
  * Export.
@@ -13880,7 +14968,7 @@ function uncamelize(string) {
   })
 }
 
-},{}],64:[function(require,module,exports){
+},{}],70:[function(require,module,exports){
 
 var clean = require('to-no-case')
 
@@ -13903,7 +14991,7 @@ function toSpaceCase(string) {
   }).trim()
 }
 
-},{"to-no-case":63}],65:[function(require,module,exports){
+},{"to-no-case":69}],71:[function(require,module,exports){
 /**
  * Convert array of 16 byte values to UUID string format of the form:
  * XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX
@@ -13929,7 +15017,7 @@ function bytesToUuid(buf, offset) {
 
 module.exports = bytesToUuid;
 
-},{}],66:[function(require,module,exports){
+},{}],72:[function(require,module,exports){
 // Unique ID creation requires a high quality random # generator.  In the
 // browser this is a little complicated due to unknown quality of Math.random()
 // and inconsistent support for the `crypto` API.  We do the best we can via
@@ -13965,7 +15053,7 @@ if (getRandomValues) {
   };
 }
 
-},{}],67:[function(require,module,exports){
+},{}],73:[function(require,module,exports){
 var rng = require('./lib/rng');
 var bytesToUuid = require('./lib/bytesToUuid');
 
@@ -13996,7 +15084,7 @@ function v4(options, buf, offset) {
 
 module.exports = v4;
 
-},{"./lib/bytesToUuid":65,"./lib/rng":66}],68:[function(require,module,exports){
+},{"./lib/bytesToUuid":71,"./lib/rng":72}],74:[function(require,module,exports){
 var parse = require('parse-color')
 var isnumber = require('is-number')
 var isstring = require('is-string')
@@ -14107,7 +15195,7 @@ Pixels.prototype.update = function (data) {
 
 module.exports = Pixels
 
-},{"./util/convert":69,"./util/layout":70,"is-array":9,"is-number":11,"is-string":12,"parse-color":16,"regl":53}],69:[function(require,module,exports){
+},{"./util/convert":75,"./util/layout":76,"is-array":15,"is-number":17,"is-string":18,"parse-color":22,"regl":59}],75:[function(require,module,exports){
 var flatten = require('flatten')
 var isarray = require('is-array')
 var isnumber = require('is-number')
@@ -14134,7 +15222,7 @@ function convert (data) {
 
 module.exports = convert
 
-},{"flatten":7,"is-array":9,"is-number":11,"is-string":12,"parse-color":16}],70:[function(require,module,exports){
+},{"flatten":13,"is-array":15,"is-number":17,"is-string":18,"parse-color":22}],76:[function(require,module,exports){
 function layout (rows, columns, padding, size, aspect) {
   var grid = []
 
@@ -14151,815 +15239,5 @@ function layout (rows, columns, padding, size, aspect) {
 
 module.exports = layout
 
-},{}],71:[function(require,module,exports){
-
-},{}],72:[function(require,module,exports){
-if (typeof Object.create === 'function') {
-  // implementation from standard node.js 'util' module
-  module.exports = function inherits(ctor, superCtor) {
-    ctor.super_ = superCtor
-    ctor.prototype = Object.create(superCtor.prototype, {
-      constructor: {
-        value: ctor,
-        enumerable: false,
-        writable: true,
-        configurable: true
-      }
-    });
-  };
-} else {
-  // old school shim for old browsers
-  module.exports = function inherits(ctor, superCtor) {
-    ctor.super_ = superCtor
-    var TempCtor = function () {}
-    TempCtor.prototype = superCtor.prototype
-    ctor.prototype = new TempCtor()
-    ctor.prototype.constructor = ctor
-  }
-}
-
-},{}],73:[function(require,module,exports){
-// shim for using process in browser
-var process = module.exports = {};
-
-// cached from whatever global is present so that test runners that stub it
-// don't break things.  But we need to wrap it in a try catch in case it is
-// wrapped in strict mode code which doesn't define any globals.  It's inside a
-// function because try/catches deoptimize in certain engines.
-
-var cachedSetTimeout;
-var cachedClearTimeout;
-
-function defaultSetTimout() {
-    throw new Error('setTimeout has not been defined');
-}
-function defaultClearTimeout () {
-    throw new Error('clearTimeout has not been defined');
-}
-(function () {
-    try {
-        if (typeof setTimeout === 'function') {
-            cachedSetTimeout = setTimeout;
-        } else {
-            cachedSetTimeout = defaultSetTimout;
-        }
-    } catch (e) {
-        cachedSetTimeout = defaultSetTimout;
-    }
-    try {
-        if (typeof clearTimeout === 'function') {
-            cachedClearTimeout = clearTimeout;
-        } else {
-            cachedClearTimeout = defaultClearTimeout;
-        }
-    } catch (e) {
-        cachedClearTimeout = defaultClearTimeout;
-    }
-} ())
-function runTimeout(fun) {
-    if (cachedSetTimeout === setTimeout) {
-        //normal enviroments in sane situations
-        return setTimeout(fun, 0);
-    }
-    // if setTimeout wasn't available but was latter defined
-    if ((cachedSetTimeout === defaultSetTimout || !cachedSetTimeout) && setTimeout) {
-        cachedSetTimeout = setTimeout;
-        return setTimeout(fun, 0);
-    }
-    try {
-        // when when somebody has screwed with setTimeout but no I.E. maddness
-        return cachedSetTimeout(fun, 0);
-    } catch(e){
-        try {
-            // When we are in I.E. but the script has been evaled so I.E. doesn't trust the global object when called normally
-            return cachedSetTimeout.call(null, fun, 0);
-        } catch(e){
-            // same as above but when it's a version of I.E. that must have the global object for 'this', hopfully our context correct otherwise it will throw a global error
-            return cachedSetTimeout.call(this, fun, 0);
-        }
-    }
-
-
-}
-function runClearTimeout(marker) {
-    if (cachedClearTimeout === clearTimeout) {
-        //normal enviroments in sane situations
-        return clearTimeout(marker);
-    }
-    // if clearTimeout wasn't available but was latter defined
-    if ((cachedClearTimeout === defaultClearTimeout || !cachedClearTimeout) && clearTimeout) {
-        cachedClearTimeout = clearTimeout;
-        return clearTimeout(marker);
-    }
-    try {
-        // when when somebody has screwed with setTimeout but no I.E. maddness
-        return cachedClearTimeout(marker);
-    } catch (e){
-        try {
-            // When we are in I.E. but the script has been evaled so I.E. doesn't  trust the global object when called normally
-            return cachedClearTimeout.call(null, marker);
-        } catch (e){
-            // same as above but when it's a version of I.E. that must have the global object for 'this', hopfully our context correct otherwise it will throw a global error.
-            // Some versions of I.E. have different rules for clearTimeout vs setTimeout
-            return cachedClearTimeout.call(this, marker);
-        }
-    }
-
-
-
-}
-var queue = [];
-var draining = false;
-var currentQueue;
-var queueIndex = -1;
-
-function cleanUpNextTick() {
-    if (!draining || !currentQueue) {
-        return;
-    }
-    draining = false;
-    if (currentQueue.length) {
-        queue = currentQueue.concat(queue);
-    } else {
-        queueIndex = -1;
-    }
-    if (queue.length) {
-        drainQueue();
-    }
-}
-
-function drainQueue() {
-    if (draining) {
-        return;
-    }
-    var timeout = runTimeout(cleanUpNextTick);
-    draining = true;
-
-    var len = queue.length;
-    while(len) {
-        currentQueue = queue;
-        queue = [];
-        while (++queueIndex < len) {
-            if (currentQueue) {
-                currentQueue[queueIndex].run();
-            }
-        }
-        queueIndex = -1;
-        len = queue.length;
-    }
-    currentQueue = null;
-    draining = false;
-    runClearTimeout(timeout);
-}
-
-process.nextTick = function (fun) {
-    var args = new Array(arguments.length - 1);
-    if (arguments.length > 1) {
-        for (var i = 1; i < arguments.length; i++) {
-            args[i - 1] = arguments[i];
-        }
-    }
-    queue.push(new Item(fun, args));
-    if (queue.length === 1 && !draining) {
-        runTimeout(drainQueue);
-    }
-};
-
-// v8 likes predictible objects
-function Item(fun, array) {
-    this.fun = fun;
-    this.array = array;
-}
-Item.prototype.run = function () {
-    this.fun.apply(null, this.array);
-};
-process.title = 'browser';
-process.browser = true;
-process.env = {};
-process.argv = [];
-process.version = ''; // empty string to avoid regexp issues
-process.versions = {};
-
-function noop() {}
-
-process.on = noop;
-process.addListener = noop;
-process.once = noop;
-process.off = noop;
-process.removeListener = noop;
-process.removeAllListeners = noop;
-process.emit = noop;
-process.prependListener = noop;
-process.prependOnceListener = noop;
-
-process.listeners = function (name) { return [] }
-
-process.binding = function (name) {
-    throw new Error('process.binding is not supported');
-};
-
-process.cwd = function () { return '/' };
-process.chdir = function (dir) {
-    throw new Error('process.chdir is not supported');
-};
-process.umask = function() { return 0; };
-
-},{}],74:[function(require,module,exports){
-module.exports = function isBuffer(arg) {
-  return arg && typeof arg === 'object'
-    && typeof arg.copy === 'function'
-    && typeof arg.fill === 'function'
-    && typeof arg.readUInt8 === 'function';
-}
-},{}],75:[function(require,module,exports){
-(function (process,global){
-// Copyright Joyent, Inc. and other Node contributors.
-//
-// Permission is hereby granted, free of charge, to any person obtaining a
-// copy of this software and associated documentation files (the
-// "Software"), to deal in the Software without restriction, including
-// without limitation the rights to use, copy, modify, merge, publish,
-// distribute, sublicense, and/or sell copies of the Software, and to permit
-// persons to whom the Software is furnished to do so, subject to the
-// following conditions:
-//
-// The above copyright notice and this permission notice shall be included
-// in all copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
-// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
-// NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
-// DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-// OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
-// USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-var formatRegExp = /%[sdj%]/g;
-exports.format = function(f) {
-  if (!isString(f)) {
-    var objects = [];
-    for (var i = 0; i < arguments.length; i++) {
-      objects.push(inspect(arguments[i]));
-    }
-    return objects.join(' ');
-  }
-
-  var i = 1;
-  var args = arguments;
-  var len = args.length;
-  var str = String(f).replace(formatRegExp, function(x) {
-    if (x === '%%') return '%';
-    if (i >= len) return x;
-    switch (x) {
-      case '%s': return String(args[i++]);
-      case '%d': return Number(args[i++]);
-      case '%j':
-        try {
-          return JSON.stringify(args[i++]);
-        } catch (_) {
-          return '[Circular]';
-        }
-      default:
-        return x;
-    }
-  });
-  for (var x = args[i]; i < len; x = args[++i]) {
-    if (isNull(x) || !isObject(x)) {
-      str += ' ' + x;
-    } else {
-      str += ' ' + inspect(x);
-    }
-  }
-  return str;
-};
-
-
-// Mark that a method should not be used.
-// Returns a modified function which warns once by default.
-// If --no-deprecation is set, then it is a no-op.
-exports.deprecate = function(fn, msg) {
-  // Allow for deprecating things in the process of starting up.
-  if (isUndefined(global.process)) {
-    return function() {
-      return exports.deprecate(fn, msg).apply(this, arguments);
-    };
-  }
-
-  if (process.noDeprecation === true) {
-    return fn;
-  }
-
-  var warned = false;
-  function deprecated() {
-    if (!warned) {
-      if (process.throwDeprecation) {
-        throw new Error(msg);
-      } else if (process.traceDeprecation) {
-        console.trace(msg);
-      } else {
-        console.error(msg);
-      }
-      warned = true;
-    }
-    return fn.apply(this, arguments);
-  }
-
-  return deprecated;
-};
-
-
-var debugs = {};
-var debugEnviron;
-exports.debuglog = function(set) {
-  if (isUndefined(debugEnviron))
-    debugEnviron = process.env.NODE_DEBUG || '';
-  set = set.toUpperCase();
-  if (!debugs[set]) {
-    if (new RegExp('\\b' + set + '\\b', 'i').test(debugEnviron)) {
-      var pid = process.pid;
-      debugs[set] = function() {
-        var msg = exports.format.apply(exports, arguments);
-        console.error('%s %d: %s', set, pid, msg);
-      };
-    } else {
-      debugs[set] = function() {};
-    }
-  }
-  return debugs[set];
-};
-
-
-/**
- * Echos the value of a value. Trys to print the value out
- * in the best way possible given the different types.
- *
- * @param {Object} obj The object to print out.
- * @param {Object} opts Optional options object that alters the output.
- */
-/* legacy: obj, showHidden, depth, colors*/
-function inspect(obj, opts) {
-  // default options
-  var ctx = {
-    seen: [],
-    stylize: stylizeNoColor
-  };
-  // legacy...
-  if (arguments.length >= 3) ctx.depth = arguments[2];
-  if (arguments.length >= 4) ctx.colors = arguments[3];
-  if (isBoolean(opts)) {
-    // legacy...
-    ctx.showHidden = opts;
-  } else if (opts) {
-    // got an "options" object
-    exports._extend(ctx, opts);
-  }
-  // set default options
-  if (isUndefined(ctx.showHidden)) ctx.showHidden = false;
-  if (isUndefined(ctx.depth)) ctx.depth = 2;
-  if (isUndefined(ctx.colors)) ctx.colors = false;
-  if (isUndefined(ctx.customInspect)) ctx.customInspect = true;
-  if (ctx.colors) ctx.stylize = stylizeWithColor;
-  return formatValue(ctx, obj, ctx.depth);
-}
-exports.inspect = inspect;
-
-
-// http://en.wikipedia.org/wiki/ANSI_escape_code#graphics
-inspect.colors = {
-  'bold' : [1, 22],
-  'italic' : [3, 23],
-  'underline' : [4, 24],
-  'inverse' : [7, 27],
-  'white' : [37, 39],
-  'grey' : [90, 39],
-  'black' : [30, 39],
-  'blue' : [34, 39],
-  'cyan' : [36, 39],
-  'green' : [32, 39],
-  'magenta' : [35, 39],
-  'red' : [31, 39],
-  'yellow' : [33, 39]
-};
-
-// Don't use 'blue' not visible on cmd.exe
-inspect.styles = {
-  'special': 'cyan',
-  'number': 'yellow',
-  'boolean': 'yellow',
-  'undefined': 'grey',
-  'null': 'bold',
-  'string': 'green',
-  'date': 'magenta',
-  // "name": intentionally not styling
-  'regexp': 'red'
-};
-
-
-function stylizeWithColor(str, styleType) {
-  var style = inspect.styles[styleType];
-
-  if (style) {
-    return '\u001b[' + inspect.colors[style][0] + 'm' + str +
-           '\u001b[' + inspect.colors[style][1] + 'm';
-  } else {
-    return str;
-  }
-}
-
-
-function stylizeNoColor(str, styleType) {
-  return str;
-}
-
-
-function arrayToHash(array) {
-  var hash = {};
-
-  array.forEach(function(val, idx) {
-    hash[val] = true;
-  });
-
-  return hash;
-}
-
-
-function formatValue(ctx, value, recurseTimes) {
-  // Provide a hook for user-specified inspect functions.
-  // Check that value is an object with an inspect function on it
-  if (ctx.customInspect &&
-      value &&
-      isFunction(value.inspect) &&
-      // Filter out the util module, it's inspect function is special
-      value.inspect !== exports.inspect &&
-      // Also filter out any prototype objects using the circular check.
-      !(value.constructor && value.constructor.prototype === value)) {
-    var ret = value.inspect(recurseTimes, ctx);
-    if (!isString(ret)) {
-      ret = formatValue(ctx, ret, recurseTimes);
-    }
-    return ret;
-  }
-
-  // Primitive types cannot have properties
-  var primitive = formatPrimitive(ctx, value);
-  if (primitive) {
-    return primitive;
-  }
-
-  // Look up the keys of the object.
-  var keys = Object.keys(value);
-  var visibleKeys = arrayToHash(keys);
-
-  if (ctx.showHidden) {
-    keys = Object.getOwnPropertyNames(value);
-  }
-
-  // IE doesn't make error fields non-enumerable
-  // http://msdn.microsoft.com/en-us/library/ie/dww52sbt(v=vs.94).aspx
-  if (isError(value)
-      && (keys.indexOf('message') >= 0 || keys.indexOf('description') >= 0)) {
-    return formatError(value);
-  }
-
-  // Some type of object without properties can be shortcutted.
-  if (keys.length === 0) {
-    if (isFunction(value)) {
-      var name = value.name ? ': ' + value.name : '';
-      return ctx.stylize('[Function' + name + ']', 'special');
-    }
-    if (isRegExp(value)) {
-      return ctx.stylize(RegExp.prototype.toString.call(value), 'regexp');
-    }
-    if (isDate(value)) {
-      return ctx.stylize(Date.prototype.toString.call(value), 'date');
-    }
-    if (isError(value)) {
-      return formatError(value);
-    }
-  }
-
-  var base = '', array = false, braces = ['{', '}'];
-
-  // Make Array say that they are Array
-  if (isArray(value)) {
-    array = true;
-    braces = ['[', ']'];
-  }
-
-  // Make functions say that they are functions
-  if (isFunction(value)) {
-    var n = value.name ? ': ' + value.name : '';
-    base = ' [Function' + n + ']';
-  }
-
-  // Make RegExps say that they are RegExps
-  if (isRegExp(value)) {
-    base = ' ' + RegExp.prototype.toString.call(value);
-  }
-
-  // Make dates with properties first say the date
-  if (isDate(value)) {
-    base = ' ' + Date.prototype.toUTCString.call(value);
-  }
-
-  // Make error with message first say the error
-  if (isError(value)) {
-    base = ' ' + formatError(value);
-  }
-
-  if (keys.length === 0 && (!array || value.length == 0)) {
-    return braces[0] + base + braces[1];
-  }
-
-  if (recurseTimes < 0) {
-    if (isRegExp(value)) {
-      return ctx.stylize(RegExp.prototype.toString.call(value), 'regexp');
-    } else {
-      return ctx.stylize('[Object]', 'special');
-    }
-  }
-
-  ctx.seen.push(value);
-
-  var output;
-  if (array) {
-    output = formatArray(ctx, value, recurseTimes, visibleKeys, keys);
-  } else {
-    output = keys.map(function(key) {
-      return formatProperty(ctx, value, recurseTimes, visibleKeys, key, array);
-    });
-  }
-
-  ctx.seen.pop();
-
-  return reduceToSingleString(output, base, braces);
-}
-
-
-function formatPrimitive(ctx, value) {
-  if (isUndefined(value))
-    return ctx.stylize('undefined', 'undefined');
-  if (isString(value)) {
-    var simple = '\'' + JSON.stringify(value).replace(/^"|"$/g, '')
-                                             .replace(/'/g, "\\'")
-                                             .replace(/\\"/g, '"') + '\'';
-    return ctx.stylize(simple, 'string');
-  }
-  if (isNumber(value))
-    return ctx.stylize('' + value, 'number');
-  if (isBoolean(value))
-    return ctx.stylize('' + value, 'boolean');
-  // For some reason typeof null is "object", so special case here.
-  if (isNull(value))
-    return ctx.stylize('null', 'null');
-}
-
-
-function formatError(value) {
-  return '[' + Error.prototype.toString.call(value) + ']';
-}
-
-
-function formatArray(ctx, value, recurseTimes, visibleKeys, keys) {
-  var output = [];
-  for (var i = 0, l = value.length; i < l; ++i) {
-    if (hasOwnProperty(value, String(i))) {
-      output.push(formatProperty(ctx, value, recurseTimes, visibleKeys,
-          String(i), true));
-    } else {
-      output.push('');
-    }
-  }
-  keys.forEach(function(key) {
-    if (!key.match(/^\d+$/)) {
-      output.push(formatProperty(ctx, value, recurseTimes, visibleKeys,
-          key, true));
-    }
-  });
-  return output;
-}
-
-
-function formatProperty(ctx, value, recurseTimes, visibleKeys, key, array) {
-  var name, str, desc;
-  desc = Object.getOwnPropertyDescriptor(value, key) || { value: value[key] };
-  if (desc.get) {
-    if (desc.set) {
-      str = ctx.stylize('[Getter/Setter]', 'special');
-    } else {
-      str = ctx.stylize('[Getter]', 'special');
-    }
-  } else {
-    if (desc.set) {
-      str = ctx.stylize('[Setter]', 'special');
-    }
-  }
-  if (!hasOwnProperty(visibleKeys, key)) {
-    name = '[' + key + ']';
-  }
-  if (!str) {
-    if (ctx.seen.indexOf(desc.value) < 0) {
-      if (isNull(recurseTimes)) {
-        str = formatValue(ctx, desc.value, null);
-      } else {
-        str = formatValue(ctx, desc.value, recurseTimes - 1);
-      }
-      if (str.indexOf('\n') > -1) {
-        if (array) {
-          str = str.split('\n').map(function(line) {
-            return '  ' + line;
-          }).join('\n').substr(2);
-        } else {
-          str = '\n' + str.split('\n').map(function(line) {
-            return '   ' + line;
-          }).join('\n');
-        }
-      }
-    } else {
-      str = ctx.stylize('[Circular]', 'special');
-    }
-  }
-  if (isUndefined(name)) {
-    if (array && key.match(/^\d+$/)) {
-      return str;
-    }
-    name = JSON.stringify('' + key);
-    if (name.match(/^"([a-zA-Z_][a-zA-Z_0-9]*)"$/)) {
-      name = name.substr(1, name.length - 2);
-      name = ctx.stylize(name, 'name');
-    } else {
-      name = name.replace(/'/g, "\\'")
-                 .replace(/\\"/g, '"')
-                 .replace(/(^"|"$)/g, "'");
-      name = ctx.stylize(name, 'string');
-    }
-  }
-
-  return name + ': ' + str;
-}
-
-
-function reduceToSingleString(output, base, braces) {
-  var numLinesEst = 0;
-  var length = output.reduce(function(prev, cur) {
-    numLinesEst++;
-    if (cur.indexOf('\n') >= 0) numLinesEst++;
-    return prev + cur.replace(/\u001b\[\d\d?m/g, '').length + 1;
-  }, 0);
-
-  if (length > 60) {
-    return braces[0] +
-           (base === '' ? '' : base + '\n ') +
-           ' ' +
-           output.join(',\n  ') +
-           ' ' +
-           braces[1];
-  }
-
-  return braces[0] + base + ' ' + output.join(', ') + ' ' + braces[1];
-}
-
-
-// NOTE: These type checking functions intentionally don't use `instanceof`
-// because it is fragile and can be easily faked with `Object.create()`.
-function isArray(ar) {
-  return Array.isArray(ar);
-}
-exports.isArray = isArray;
-
-function isBoolean(arg) {
-  return typeof arg === 'boolean';
-}
-exports.isBoolean = isBoolean;
-
-function isNull(arg) {
-  return arg === null;
-}
-exports.isNull = isNull;
-
-function isNullOrUndefined(arg) {
-  return arg == null;
-}
-exports.isNullOrUndefined = isNullOrUndefined;
-
-function isNumber(arg) {
-  return typeof arg === 'number';
-}
-exports.isNumber = isNumber;
-
-function isString(arg) {
-  return typeof arg === 'string';
-}
-exports.isString = isString;
-
-function isSymbol(arg) {
-  return typeof arg === 'symbol';
-}
-exports.isSymbol = isSymbol;
-
-function isUndefined(arg) {
-  return arg === void 0;
-}
-exports.isUndefined = isUndefined;
-
-function isRegExp(re) {
-  return isObject(re) && objectToString(re) === '[object RegExp]';
-}
-exports.isRegExp = isRegExp;
-
-function isObject(arg) {
-  return typeof arg === 'object' && arg !== null;
-}
-exports.isObject = isObject;
-
-function isDate(d) {
-  return isObject(d) && objectToString(d) === '[object Date]';
-}
-exports.isDate = isDate;
-
-function isError(e) {
-  return isObject(e) &&
-      (objectToString(e) === '[object Error]' || e instanceof Error);
-}
-exports.isError = isError;
-
-function isFunction(arg) {
-  return typeof arg === 'function';
-}
-exports.isFunction = isFunction;
-
-function isPrimitive(arg) {
-  return arg === null ||
-         typeof arg === 'boolean' ||
-         typeof arg === 'number' ||
-         typeof arg === 'string' ||
-         typeof arg === 'symbol' ||  // ES6 symbol
-         typeof arg === 'undefined';
-}
-exports.isPrimitive = isPrimitive;
-
-exports.isBuffer = require('./support/isBuffer');
-
-function objectToString(o) {
-  return Object.prototype.toString.call(o);
-}
-
-
-function pad(n) {
-  return n < 10 ? '0' + n.toString(10) : n.toString(10);
-}
-
-
-var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep',
-              'Oct', 'Nov', 'Dec'];
-
-// 26 Feb 16:19:34
-function timestamp() {
-  var d = new Date();
-  var time = [pad(d.getHours()),
-              pad(d.getMinutes()),
-              pad(d.getSeconds())].join(':');
-  return [d.getDate(), months[d.getMonth()], time].join(' ');
-}
-
-
-// log is just a thin wrapper to console.log that prepends a timestamp
-exports.log = function() {
-  console.log('%s - %s', timestamp(), exports.format.apply(exports, arguments));
-};
-
-
-/**
- * Inherit the prototype methods from one constructor into another.
- *
- * The Function.prototype.inherits from lang.js rewritten as a standalone
- * function (not on Function.prototype). NOTE: If this file is to be loaded
- * during bootstrapping this function needs to be rewritten using some native
- * functions as prototype setup using normal JavaScript does not work as
- * expected during bootstrapping (see mirror.js in r114903).
- *
- * @param {function} ctor Constructor function which needs to inherit the
- *     prototype.
- * @param {function} superCtor Constructor function to inherit prototype from.
- */
-exports.inherits = require('inherits');
-
-exports._extend = function(origin, add) {
-  // Don't do anything if add isn't an object
-  if (!add || !isObject(add)) return origin;
-
-  var keys = Object.keys(add);
-  var i = keys.length;
-  while (i--) {
-    origin[keys[i]] = add[keys[i]];
-  }
-  return origin;
-};
-
-function hasOwnProperty(obj, prop) {
-  return Object.prototype.hasOwnProperty.call(obj, prop);
-}
-
-}).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./support/isBuffer":74,"_process":73,"inherits":72}]},{},[1])(1)
+},{}]},{},[7])(7)
 });

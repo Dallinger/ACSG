@@ -1,18 +1,18 @@
 /*global require, process */
 var acsg = require('./acsg');
 var fs = require('fs');
-var filename = process.argv.slice(2)[0].trim();
 
+var inputfile = process.argv.slice(2)[0].trim();
+var outputfile = ''
+console.log("Reading in " + inputfile + '.');
 
-console.log("Filename: " + filename);
-
-
-var compressedData = JSON.parse(fs.readFileSync(filename, 'utf8'));
+var compressedData = JSON.parse(fs.readFileSync(inputfile, 'utf8'));
 compressedData.config.IS_CLI = true
-console.log("New compressedData: " + compressedData);
 
 var decompressor = acsg.Game(compressedData);
 
+console.log("Running game and rebuilding state data...")
 decompressor.run(function () {
-  decompressor.exportFullGameData()
+  outputfile = decompressor.exportFullGameData()
 });
+console.log("Success! Exported to data/" + outputfile)

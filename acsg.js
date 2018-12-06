@@ -10,7 +10,6 @@ var Rands = require('rands')
 var seedrandom = require('seedrandom')
 var uuidv4 = require('uuid/v4')
 
-debugger;
 var GREEN = [0.51, 0.95, 0.61]
 var BLUE = [0.50, 0.86, 1.00]
 var YELLOW = [1.00, 0.86, 0.50]
@@ -37,6 +36,11 @@ function extend(obj, src) {
     if (src.hasOwnProperty(key)) obj[key] = src[key];
   }
   return obj;
+}
+
+function filenameFrom(data) {
+  var experimentID = data.id
+  return experimentID + '-decompressed.json'
 }
 
 var acsg = {}  // Module namespace
@@ -148,16 +152,15 @@ acsg.Browser = (function () {
     this.pixels.update(this.data)
   }
 
-  Browser.prototype.exportFile = function (data) {
-      var expID = data.id
+  Browser.prototype.exportFile = function (data, filename) {
       var blob = new Blob([JSON.stringify(data)], {type: 'application/json'})
       var url = URL.createObjectURL(blob)
       var el = document.createElement('a')
       el.style.display = 'none'
       el.id = 'downloadAnchorElem'
       el.href = url
-      el.download = 'game.json'
-      el.textContent = 'Download backup.json'
+      el.download = filename
+      el.textContent = 'Download'
       document.body.appendChild(el)
       el.click()
   }
@@ -172,6 +175,7 @@ acsg.FakeBrowser = (function () {
       if (!(this instanceof FakeBrowser)) {
           return new FakeBrowser(opts);
       }
+
       this.opts = opts
       this._performance = require('perf_hooks')
   }
@@ -209,14 +213,10 @@ acsg.FakeBrowser = (function () {
     // Noop
   }
 
-  FakeBrowser.prototype.exportFile = function (data) {
-    console.log("Write data to file here...")
-    var expID = data.id
-    var contents = JSON.stringify(data)
-    var filename = expID + '-decompressed.json'
-    fs.writeFileSync('data/' + filename, contents, function (err) {
+  FakeBrowser.prototype.exportFile = function (data, filename) {
+    var content = JSON.stringify(data)
+    fs.writeFileSync('data/' + filename, content, function (err) {
       if (err) throw err;
-      console.log('The file has been saved!');
     });
   }
 
@@ -368,7 +368,6 @@ acsg.Player = (function () {
       return new Player(config)
     }
     this.world = config.world
-    this.browser = this.world.browser
     this.id = this.world.players.length
     this.position = this.world.randomPosition()
     this.teamIdx = Math.floor(Math.random() * teamColors.length)
@@ -521,7 +520,6 @@ acsg.Game = (function () {
       this.opts.BOT_MOTION_RATE = opts.BOT_MOTION_RATE || 8
       this.opts.BLOCK_SIZE = opts.BLOCK_SIZE || 15
       this.opts.BLOCK_PADDING = opts.BLOCK_PADDING || 1
-      // this.opts.SEED = opts.SEED || performance.now()
       this.opts.BOT_STRATEGY = opts.BOT_STRATEGY || 'random'
       this.UUID = uuidv4()
       this.replay = false
@@ -708,7 +706,11 @@ acsg.Game = (function () {
 
   // Download the serialized game as a JSON file.
   Game.prototype.exportFullGameData = function () {
-    self.browser.exportFile(this.serializeFullState())
+    var data = this.serializeFullState(),
+        filename = filenameFrom(data)
+
+    self.browser.exportFile(data, filename)
+    return filename
   }
 
   return Game

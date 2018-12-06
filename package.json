@@ -33,6 +33,7 @@
     "mouse-position": "^2.1.0",
     "mousetrap": "^1.6.2",
     "parse-color": "^1.0.0",
+    "perf_hooks": "0.0.1",
     "rands": "^1.0.0",
     "regl": "^0.11.0",
     "seedrandom": "^2.4.4",

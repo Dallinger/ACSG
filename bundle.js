@@ -1,6 +1,819 @@
-(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+(function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
+
+},{}],2:[function(require,module,exports){
+arguments[4][1][0].apply(exports,arguments)
+},{"dup":1}],3:[function(require,module,exports){
+if (typeof Object.create === 'function') {
+  // implementation from standard node.js 'util' module
+  module.exports = function inherits(ctor, superCtor) {
+    ctor.super_ = superCtor
+    ctor.prototype = Object.create(superCtor.prototype, {
+      constructor: {
+        value: ctor,
+        enumerable: false,
+        writable: true,
+        configurable: true
+      }
+    });
+  };
+} else {
+  // old school shim for old browsers
+  module.exports = function inherits(ctor, superCtor) {
+    ctor.super_ = superCtor
+    var TempCtor = function () {}
+    TempCtor.prototype = superCtor.prototype
+    ctor.prototype = new TempCtor()
+    ctor.prototype.constructor = ctor
+  }
+}
+
+},{}],4:[function(require,module,exports){
+// shim for using process in browser
+var process = module.exports = {};
+
+// cached from whatever global is present so that test runners that stub it
+// don't break things.  But we need to wrap it in a try catch in case it is
+// wrapped in strict mode code which doesn't define any globals.  It's inside a
+// function because try/catches deoptimize in certain engines.
+
+var cachedSetTimeout;
+var cachedClearTimeout;
+
+function defaultSetTimout() {
+    throw new Error('setTimeout has not been defined');
+}
+function defaultClearTimeout () {
+    throw new Error('clearTimeout has not been defined');
+}
+(function () {
+    try {
+        if (typeof setTimeout === 'function') {
+            cachedSetTimeout = setTimeout;
+        } else {
+            cachedSetTimeout = defaultSetTimout;
+        }
+    } catch (e) {
+        cachedSetTimeout = defaultSetTimout;
+    }
+    try {
+        if (typeof clearTimeout === 'function') {
+            cachedClearTimeout = clearTimeout;
+        } else {
+            cachedClearTimeout = defaultClearTimeout;
+        }
+    } catch (e) {
+        cachedClearTimeout = defaultClearTimeout;
+    }
+} ())
+function runTimeout(fun) {
+    if (cachedSetTimeout === setTimeout) {
+        //normal enviroments in sane situations
+        return setTimeout(fun, 0);
+    }
+    // if setTimeout wasn't available but was latter defined
+    if ((cachedSetTimeout === defaultSetTimout || !cachedSetTimeout) && setTimeout) {
+        cachedSetTimeout = setTimeout;
+        return setTimeout(fun, 0);
+    }
+    try {
+        // when when somebody has screwed with setTimeout but no I.E. maddness
+        return cachedSetTimeout(fun, 0);
+    } catch(e){
+        try {
+            // When we are in I.E. but the script has been evaled so I.E. doesn't trust the global object when called normally
+            return cachedSetTimeout.call(null, fun, 0);
+        } catch(e){
+            // same as above but when it's a version of I.E. that must have the global object for 'this', hopfully our context correct otherwise it will throw a global error
+            return cachedSetTimeout.call(this, fun, 0);
+        }
+    }
+
+
+}
+function runClearTimeout(marker) {
+    if (cachedClearTimeout === clearTimeout) {
+        //normal enviroments in sane situations
+        return clearTimeout(marker);
+    }
+    // if clearTimeout wasn't available but was latter defined
+    if ((cachedClearTimeout === defaultClearTimeout || !cachedClearTimeout) && clearTimeout) {
+        cachedClearTimeout = clearTimeout;
+        return clearTimeout(marker);
+    }
+    try {
+        // when when somebody has screwed with setTimeout but no I.E. maddness
+        return cachedClearTimeout(marker);
+    } catch (e){
+        try {
+            // When we are in I.E. but the script has been evaled so I.E. doesn't  trust the global object when called normally
+            return cachedClearTimeout.call(null, marker);
+        } catch (e){
+            // same as above but when it's a version of I.E. that must have the global object for 'this', hopfully our context correct otherwise it will throw a global error.
+            // Some versions of I.E. have different rules for clearTimeout vs setTimeout
+            return cachedClearTimeout.call(this, marker);
+        }
+    }
+
+
+
+}
+var queue = [];
+var draining = false;
+var currentQueue;
+var queueIndex = -1;
+
+function cleanUpNextTick() {
+    if (!draining || !currentQueue) {
+        return;
+    }
+    draining = false;
+    if (currentQueue.length) {
+        queue = currentQueue.concat(queue);
+    } else {
+        queueIndex = -1;
+    }
+    if (queue.length) {
+        drainQueue();
+    }
+}
+
+function drainQueue() {
+    if (draining) {
+        return;
+    }
+    var timeout = runTimeout(cleanUpNextTick);
+    draining = true;
+
+    var len = queue.length;
+    while(len) {
+        currentQueue = queue;
+        queue = [];
+        while (++queueIndex < len) {
+            if (currentQueue) {
+                currentQueue[queueIndex].run();
+            }
+        }
+        queueIndex = -1;
+        len = queue.length;
+    }
+    currentQueue = null;
+    draining = false;
+    runClearTimeout(timeout);
+}
+
+process.nextTick = function (fun) {
+    var args = new Array(arguments.length - 1);
+    if (arguments.length > 1) {
+        for (var i = 1; i < arguments.length; i++) {
+            args[i - 1] = arguments[i];
+        }
+    }
+    queue.push(new Item(fun, args));
+    if (queue.length === 1 && !draining) {
+        runTimeout(drainQueue);
+    }
+};
+
+// v8 likes predictible objects
+function Item(fun, array) {
+    this.fun = fun;
+    this.array = array;
+}
+Item.prototype.run = function () {
+    this.fun.apply(null, this.array);
+};
+process.title = 'browser';
+process.browser = true;
+process.env = {};
+process.argv = [];
+process.version = ''; // empty string to avoid regexp issues
+process.versions = {};
+
+function noop() {}
+
+process.on = noop;
+process.addListener = noop;
+process.once = noop;
+process.off = noop;
+process.removeListener = noop;
+process.removeAllListeners = noop;
+process.emit = noop;
+process.prependListener = noop;
+process.prependOnceListener = noop;
+
+process.listeners = function (name) { return [] }
+
+process.binding = function (name) {
+    throw new Error('process.binding is not supported');
+};
+
+process.cwd = function () { return '/' };
+process.chdir = function (dir) {
+    throw new Error('process.chdir is not supported');
+};
+process.umask = function() { return 0; };
+
+},{}],5:[function(require,module,exports){
+module.exports = function isBuffer(arg) {
+  return arg && typeof arg === 'object'
+    && typeof arg.copy === 'function'
+    && typeof arg.fill === 'function'
+    && typeof arg.readUInt8 === 'function';
+}
+},{}],6:[function(require,module,exports){
+(function (process,global){
+// Copyright Joyent, Inc. and other Node contributors.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a
+// copy of this software and associated documentation files (the
+// "Software"), to deal in the Software without restriction, including
+// without limitation the rights to use, copy, modify, merge, publish,
+// distribute, sublicense, and/or sell copies of the Software, and to permit
+// persons to whom the Software is furnished to do so, subject to the
+// following conditions:
+//
+// The above copyright notice and this permission notice shall be included
+// in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
+// NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+// DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+// OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
+// USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+var formatRegExp = /%[sdj%]/g;
+exports.format = function(f) {
+  if (!isString(f)) {
+    var objects = [];
+    for (var i = 0; i < arguments.length; i++) {
+      objects.push(inspect(arguments[i]));
+    }
+    return objects.join(' ');
+  }
+
+  var i = 1;
+  var args = arguments;
+  var len = args.length;
+  var str = String(f).replace(formatRegExp, function(x) {
+    if (x === '%%') return '%';
+    if (i >= len) return x;
+    switch (x) {
+      case '%s': return String(args[i++]);
+      case '%d': return Number(args[i++]);
+      case '%j':
+        try {
+          return JSON.stringify(args[i++]);
+        } catch (_) {
+          return '[Circular]';
+        }
+      default:
+        return x;
+    }
+  });
+  for (var x = args[i]; i < len; x = args[++i]) {
+    if (isNull(x) || !isObject(x)) {
+      str += ' ' + x;
+    } else {
+      str += ' ' + inspect(x);
+    }
+  }
+  return str;
+};
+
+
+// Mark that a method should not be used.
+// Returns a modified function which warns once by default.
+// If --no-deprecation is set, then it is a no-op.
+exports.deprecate = function(fn, msg) {
+  // Allow for deprecating things in the process of starting up.
+  if (isUndefined(global.process)) {
+    return function() {
+      return exports.deprecate(fn, msg).apply(this, arguments);
+    };
+  }
+
+  if (process.noDeprecation === true) {
+    return fn;
+  }
+
+  var warned = false;
+  function deprecated() {
+    if (!warned) {
+      if (process.throwDeprecation) {
+        throw new Error(msg);
+      } else if (process.traceDeprecation) {
+        console.trace(msg);
+      } else {
+        console.error(msg);
+      }
+      warned = true;
+    }
+    return fn.apply(this, arguments);
+  }
+
+  return deprecated;
+};
+
+
+var debugs = {};
+var debugEnviron;
+exports.debuglog = function(set) {
+  if (isUndefined(debugEnviron))
+    debugEnviron = process.env.NODE_DEBUG || '';
+  set = set.toUpperCase();
+  if (!debugs[set]) {
+    if (new RegExp('\\b' + set + '\\b', 'i').test(debugEnviron)) {
+      var pid = process.pid;
+      debugs[set] = function() {
+        var msg = exports.format.apply(exports, arguments);
+        console.error('%s %d: %s', set, pid, msg);
+      };
+    } else {
+      debugs[set] = function() {};
+    }
+  }
+  return debugs[set];
+};
+
+
+/**
+ * Echos the value of a value. Trys to print the value out
+ * in the best way possible given the different types.
+ *
+ * @param {Object} obj The object to print out.
+ * @param {Object} opts Optional options object that alters the output.
+ */
+/* legacy: obj, showHidden, depth, colors*/
+function inspect(obj, opts) {
+  // default options
+  var ctx = {
+    seen: [],
+    stylize: stylizeNoColor
+  };
+  // legacy...
+  if (arguments.length >= 3) ctx.depth = arguments[2];
+  if (arguments.length >= 4) ctx.colors = arguments[3];
+  if (isBoolean(opts)) {
+    // legacy...
+    ctx.showHidden = opts;
+  } else if (opts) {
+    // got an "options" object
+    exports._extend(ctx, opts);
+  }
+  // set default options
+  if (isUndefined(ctx.showHidden)) ctx.showHidden = false;
+  if (isUndefined(ctx.depth)) ctx.depth = 2;
+  if (isUndefined(ctx.colors)) ctx.colors = false;
+  if (isUndefined(ctx.customInspect)) ctx.customInspect = true;
+  if (ctx.colors) ctx.stylize = stylizeWithColor;
+  return formatValue(ctx, obj, ctx.depth);
+}
+exports.inspect = inspect;
+
+
+// http://en.wikipedia.org/wiki/ANSI_escape_code#graphics
+inspect.colors = {
+  'bold' : [1, 22],
+  'italic' : [3, 23],
+  'underline' : [4, 24],
+  'inverse' : [7, 27],
+  'white' : [37, 39],
+  'grey' : [90, 39],
+  'black' : [30, 39],
+  'blue' : [34, 39],
+  'cyan' : [36, 39],
+  'green' : [32, 39],
+  'magenta' : [35, 39],
+  'red' : [31, 39],
+  'yellow' : [33, 39]
+};
+
+// Don't use 'blue' not visible on cmd.exe
+inspect.styles = {
+  'special': 'cyan',
+  'number': 'yellow',
+  'boolean': 'yellow',
+  'undefined': 'grey',
+  'null': 'bold',
+  'string': 'green',
+  'date': 'magenta',
+  // "name": intentionally not styling
+  'regexp': 'red'
+};
+
+
+function stylizeWithColor(str, styleType) {
+  var style = inspect.styles[styleType];
+
+  if (style) {
+    return '\u001b[' + inspect.colors[style][0] + 'm' + str +
+           '\u001b[' + inspect.colors[style][1] + 'm';
+  } else {
+    return str;
+  }
+}
+
+
+function stylizeNoColor(str, styleType) {
+  return str;
+}
+
+
+function arrayToHash(array) {
+  var hash = {};
+
+  array.forEach(function(val, idx) {
+    hash[val] = true;
+  });
+
+  return hash;
+}
+
+
+function formatValue(ctx, value, recurseTimes) {
+  // Provide a hook for user-specified inspect functions.
+  // Check that value is an object with an inspect function on it
+  if (ctx.customInspect &&
+      value &&
+      isFunction(value.inspect) &&
+      // Filter out the util module, it's inspect function is special
+      value.inspect !== exports.inspect &&
+      // Also filter out any prototype objects using the circular check.
+      !(value.constructor && value.constructor.prototype === value)) {
+    var ret = value.inspect(recurseTimes, ctx);
+    if (!isString(ret)) {
+      ret = formatValue(ctx, ret, recurseTimes);
+    }
+    return ret;
+  }
+
+  // Primitive types cannot have properties
+  var primitive = formatPrimitive(ctx, value);
+  if (primitive) {
+    return primitive;
+  }
+
+  // Look up the keys of the object.
+  var keys = Object.keys(value);
+  var visibleKeys = arrayToHash(keys);
+
+  if (ctx.showHidden) {
+    keys = Object.getOwnPropertyNames(value);
+  }
+
+  // IE doesn't make error fields non-enumerable
+  // http://msdn.microsoft.com/en-us/library/ie/dww52sbt(v=vs.94).aspx
+  if (isError(value)
+      && (keys.indexOf('message') >= 0 || keys.indexOf('description') >= 0)) {
+    return formatError(value);
+  }
+
+  // Some type of object without properties can be shortcutted.
+  if (keys.length === 0) {
+    if (isFunction(value)) {
+      var name = value.name ? ': ' + value.name : '';
+      return ctx.stylize('[Function' + name + ']', 'special');
+    }
+    if (isRegExp(value)) {
+      return ctx.stylize(RegExp.prototype.toString.call(value), 'regexp');
+    }
+    if (isDate(value)) {
+      return ctx.stylize(Date.prototype.toString.call(value), 'date');
+    }
+    if (isError(value)) {
+      return formatError(value);
+    }
+  }
+
+  var base = '', array = false, braces = ['{', '}'];
+
+  // Make Array say that they are Array
+  if (isArray(value)) {
+    array = true;
+    braces = ['[', ']'];
+  }
+
+  // Make functions say that they are functions
+  if (isFunction(value)) {
+    var n = value.name ? ': ' + value.name : '';
+    base = ' [Function' + n + ']';
+  }
+
+  // Make RegExps say that they are RegExps
+  if (isRegExp(value)) {
+    base = ' ' + RegExp.prototype.toString.call(value);
+  }
+
+  // Make dates with properties first say the date
+  if (isDate(value)) {
+    base = ' ' + Date.prototype.toUTCString.call(value);
+  }
+
+  // Make error with message first say the error
+  if (isError(value)) {
+    base = ' ' + formatError(value);
+  }
+
+  if (keys.length === 0 && (!array || value.length == 0)) {
+    return braces[0] + base + braces[1];
+  }
+
+  if (recurseTimes < 0) {
+    if (isRegExp(value)) {
+      return ctx.stylize(RegExp.prototype.toString.call(value), 'regexp');
+    } else {
+      return ctx.stylize('[Object]', 'special');
+    }
+  }
+
+  ctx.seen.push(value);
+
+  var output;
+  if (array) {
+    output = formatArray(ctx, value, recurseTimes, visibleKeys, keys);
+  } else {
+    output = keys.map(function(key) {
+      return formatProperty(ctx, value, recurseTimes, visibleKeys, key, array);
+    });
+  }
+
+  ctx.seen.pop();
+
+  return reduceToSingleString(output, base, braces);
+}
+
+
+function formatPrimitive(ctx, value) {
+  if (isUndefined(value))
+    return ctx.stylize('undefined', 'undefined');
+  if (isString(value)) {
+    var simple = '\'' + JSON.stringify(value).replace(/^"|"$/g, '')
+                                             .replace(/'/g, "\\'")
+                                             .replace(/\\"/g, '"') + '\'';
+    return ctx.stylize(simple, 'string');
+  }
+  if (isNumber(value))
+    return ctx.stylize('' + value, 'number');
+  if (isBoolean(value))
+    return ctx.stylize('' + value, 'boolean');
+  // For some reason typeof null is "object", so special case here.
+  if (isNull(value))
+    return ctx.stylize('null', 'null');
+}
+
+
+function formatError(value) {
+  return '[' + Error.prototype.toString.call(value) + ']';
+}
+
+
+function formatArray(ctx, value, recurseTimes, visibleKeys, keys) {
+  var output = [];
+  for (var i = 0, l = value.length; i < l; ++i) {
+    if (hasOwnProperty(value, String(i))) {
+      output.push(formatProperty(ctx, value, recurseTimes, visibleKeys,
+          String(i), true));
+    } else {
+      output.push('');
+    }
+  }
+  keys.forEach(function(key) {
+    if (!key.match(/^\d+$/)) {
+      output.push(formatProperty(ctx, value, recurseTimes, visibleKeys,
+          key, true));
+    }
+  });
+  return output;
+}
+
+
+function formatProperty(ctx, value, recurseTimes, visibleKeys, key, array) {
+  var name, str, desc;
+  desc = Object.getOwnPropertyDescriptor(value, key) || { value: value[key] };
+  if (desc.get) {
+    if (desc.set) {
+      str = ctx.stylize('[Getter/Setter]', 'special');
+    } else {
+      str = ctx.stylize('[Getter]', 'special');
+    }
+  } else {
+    if (desc.set) {
+      str = ctx.stylize('[Setter]', 'special');
+    }
+  }
+  if (!hasOwnProperty(visibleKeys, key)) {
+    name = '[' + key + ']';
+  }
+  if (!str) {
+    if (ctx.seen.indexOf(desc.value) < 0) {
+      if (isNull(recurseTimes)) {
+        str = formatValue(ctx, desc.value, null);
+      } else {
+        str = formatValue(ctx, desc.value, recurseTimes - 1);
+      }
+      if (str.indexOf('\n') > -1) {
+        if (array) {
+          str = str.split('\n').map(function(line) {
+            return '  ' + line;
+          }).join('\n').substr(2);
+        } else {
+          str = '\n' + str.split('\n').map(function(line) {
+            return '   ' + line;
+          }).join('\n');
+        }
+      }
+    } else {
+      str = ctx.stylize('[Circular]', 'special');
+    }
+  }
+  if (isUndefined(name)) {
+    if (array && key.match(/^\d+$/)) {
+      return str;
+    }
+    name = JSON.stringify('' + key);
+    if (name.match(/^"([a-zA-Z_][a-zA-Z_0-9]*)"$/)) {
+      name = name.substr(1, name.length - 2);
+      name = ctx.stylize(name, 'name');
+    } else {
+      name = name.replace(/'/g, "\\'")
+                 .replace(/\\"/g, '"')
+                 .replace(/(^"|"$)/g, "'");
+      name = ctx.stylize(name, 'string');
+    }
+  }
+
+  return name + ': ' + str;
+}
+
+
+function reduceToSingleString(output, base, braces) {
+  var numLinesEst = 0;
+  var length = output.reduce(function(prev, cur) {
+    numLinesEst++;
+    if (cur.indexOf('\n') >= 0) numLinesEst++;
+    return prev + cur.replace(/\u001b\[\d\d?m/g, '').length + 1;
+  }, 0);
+
+  if (length > 60) {
+    return braces[0] +
+           (base === '' ? '' : base + '\n ') +
+           ' ' +
+           output.join(',\n  ') +
+           ' ' +
+           braces[1];
+  }
+
+  return braces[0] + base + ' ' + output.join(', ') + ' ' + braces[1];
+}
+
+
+// NOTE: These type checking functions intentionally don't use `instanceof`
+// because it is fragile and can be easily faked with `Object.create()`.
+function isArray(ar) {
+  return Array.isArray(ar);
+}
+exports.isArray = isArray;
+
+function isBoolean(arg) {
+  return typeof arg === 'boolean';
+}
+exports.isBoolean = isBoolean;
+
+function isNull(arg) {
+  return arg === null;
+}
+exports.isNull = isNull;
+
+function isNullOrUndefined(arg) {
+  return arg == null;
+}
+exports.isNullOrUndefined = isNullOrUndefined;
+
+function isNumber(arg) {
+  return typeof arg === 'number';
+}
+exports.isNumber = isNumber;
+
+function isString(arg) {
+  return typeof arg === 'string';
+}
+exports.isString = isString;
+
+function isSymbol(arg) {
+  return typeof arg === 'symbol';
+}
+exports.isSymbol = isSymbol;
+
+function isUndefined(arg) {
+  return arg === void 0;
+}
+exports.isUndefined = isUndefined;
+
+function isRegExp(re) {
+  return isObject(re) && objectToString(re) === '[object RegExp]';
+}
+exports.isRegExp = isRegExp;
+
+function isObject(arg) {
+  return typeof arg === 'object' && arg !== null;
+}
+exports.isObject = isObject;
+
+function isDate(d) {
+  return isObject(d) && objectToString(d) === '[object Date]';
+}
+exports.isDate = isDate;
+
+function isError(e) {
+  return isObject(e) &&
+      (objectToString(e) === '[object Error]' || e instanceof Error);
+}
+exports.isError = isError;
+
+function isFunction(arg) {
+  return typeof arg === 'function';
+}
+exports.isFunction = isFunction;
+
+function isPrimitive(arg) {
+  return arg === null ||
+         typeof arg === 'boolean' ||
+         typeof arg === 'number' ||
+         typeof arg === 'string' ||
+         typeof arg === 'symbol' ||  // ES6 symbol
+         typeof arg === 'undefined';
+}
+exports.isPrimitive = isPrimitive;
+
+exports.isBuffer = require('./support/isBuffer');
+
+function objectToString(o) {
+  return Object.prototype.toString.call(o);
+}
+
+
+function pad(n) {
+  return n < 10 ? '0' + n.toString(10) : n.toString(10);
+}
+
+
+var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep',
+              'Oct', 'Nov', 'Dec'];
+
+// 26 Feb 16:19:34
+function timestamp() {
+  var d = new Date();
+  var time = [pad(d.getHours()),
+              pad(d.getMinutes()),
+              pad(d.getSeconds())].join(':');
+  return [d.getDate(), months[d.getMonth()], time].join(' ');
+}
+
+
+// log is just a thin wrapper to console.log that prepends a timestamp
+exports.log = function() {
+  console.log('%s - %s', timestamp(), exports.format.apply(exports, arguments));
+};
+
+
+/**
+ * Inherit the prototype methods from one constructor into another.
+ *
+ * The Function.prototype.inherits from lang.js rewritten as a standalone
+ * function (not on Function.prototype). NOTE: If this file is to be loaded
+ * during bootstrapping this function needs to be rewritten using some native
+ * functions as prototype setup using normal JavaScript does not work as
+ * expected during bootstrapping (see mirror.js in r114903).
+ *
+ * @param {function} ctor Constructor function which needs to inherit the
+ *     prototype.
+ * @param {function} superCtor Constructor function to inherit prototype from.
+ */
+exports.inherits = require('inherits');
+
+exports._extend = function(origin, add) {
+  // Don't do anything if add isn't an object
+  if (!add || !isObject(add)) return origin;
+
+  var keys = Object.keys(add);
+  var i = keys.length;
+  while (i--) {
+    origin[keys[i]] = add[keys[i]];
+  }
+  return origin;
+};
+
+function hasOwnProperty(obj, prop) {
+  return Object.prototype.hasOwnProperty.call(obj, prop);
+}
+
+}).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{"./support/isBuffer":5,"_process":4,"inherits":3}],7:[function(require,module,exports){
 var util = require('util')
 var css = require('dom-css')
+var fs = require('fs');
 var grid = require('./pixels')
 var parse = require('parse-color')
 var position = require('mouse-position')
@@ -10,10 +823,11 @@ var Rands = require('rands')
 var seedrandom = require('seedrandom')
 var uuidv4 = require('uuid/v4')
 
-
 var GREEN = [0.51, 0.95, 0.61]
 var BLUE = [0.50, 0.86, 1.00]
 var YELLOW = [1.00, 0.86, 0.50]
+var BLACK = [0, 0, 0]
+var GRAY = [0.1, 0.1, 0.1]
 
 var teamColors = [BLUE, YELLOW]
 
@@ -37,6 +851,11 @@ function extend(obj, src) {
   return obj;
 }
 
+function filenameFrom(data) {
+  var experimentID = data.id
+  return experimentID + '-decompressed.json'
+}
+
 var acsg = {}  // Module namespace
 
 acsg.Browser = (function () {
@@ -46,7 +865,7 @@ acsg.Browser = (function () {
           return new Browser(opts);
       }
       // Seed background animation RNG.
-      var backgroundRngFunc = seedrandom(performance.now())
+      var backgroundRngFunc = seedrandom(this.now())
       this.rBackground = new Rands(backgroundRngFunc)
       this.scoreboard = document.getElementById('score')
       this.clock = document.getElementById('clock')
@@ -56,8 +875,8 @@ acsg.Browser = (function () {
 
       for (var i = 0; i < opts.ROWS; i++) {
         for (var j = 0; j < opts.COLUMNS; j++) {
-          this.data.push([0, 0, 0])
-          this.background.push([0, 0, 0])
+          this.data.push(BLACK)
+          this.background.push(BLACK)
         }
       }
 
@@ -67,9 +886,13 @@ acsg.Browser = (function () {
         columns: opts.COLUMNS,
         size: opts.BLOCK_SIZE,
         padding: opts.BLOCK_PADDING,
-        background: [0.1, 0.1, 0.1],
+        background: GRAY,
         formatted: true
       })
+  }
+
+  Browser.prototype.now = function () {
+    return performance.now()
   }
 
   Browser.prototype.updateScoreboard = function (score) {
@@ -80,8 +903,32 @@ acsg.Browser = (function () {
     this.clock.innerHTML = ((t > 0) ? t.toFixed(1) : '0.0')
   }
 
-  Browser.prototype.eventStream = function () {
-    return this.pixels.frame
+  Browser.prototype.draw = function (position, color) {
+    // Covert x, y to linear index
+    index = position[0] * this.opts.COLUMNS + position[1]
+    this.data[index] = color
+  }
+  /**
+   * If in real-time mode, for every screen refresh update,
+   * call the callback function with the actual current timestamp.
+   *
+   * If we're not in real-time mode, return a timestamp that's later than
+   * the end of the experiment being replayed, so it executes all actions
+   * as fast as possible.
+   *
+   * See:
+   * https://github.com/regl-project/regl/blob/gh-pages/API.md#per-frame-callbacks
+   */
+  Browser.prototype.eventStream = function (callback) {
+    var self = this
+    if (! this.opts.REAL_TIME) {
+      // Jump to the end of the game, so we process all events immediately
+      var afterGameOver = (this.now() + this.opts.DURATION + 1) * 1000
+      this.pixels.frame(function (){ callback(afterGameOver) })
+    } else {
+      var self = this
+      this.pixels.frame(function (){ callback(self.now()) })
+    }
   }
 
   Browser.prototype.updateBackground = function () {
@@ -118,21 +965,77 @@ acsg.Browser = (function () {
     this.pixels.update(this.data)
   }
 
-  Browser.prototype.exportFile = function (data) {
-      var blob = new Blob([data], {type: 'application/json'})
+  Browser.prototype.exportFile = function (data, filename) {
+      var blob = new Blob([JSON.stringify(data)], {type: 'application/json'})
       var url = URL.createObjectURL(blob)
       var el = document.createElement('a')
       el.style.display = 'none'
       el.id = 'downloadAnchorElem'
       el.href = url
-      el.download = 'game.json'
-      el.textContent = 'Download backup.json'
+      el.download = filename
+      el.textContent = 'Download'
       document.body.appendChild(el)
       el.click()
   }
 
   return Browser
 }())
+
+
+acsg.FakeBrowser = (function () {
+
+  var FakeBrowser = function (opts) {
+      if (!(this instanceof FakeBrowser)) {
+          return new FakeBrowser(opts);
+      }
+
+      this.opts = opts
+      this._performance = require('perf_hooks')
+  }
+
+  FakeBrowser.prototype.now = function () {
+    return this._performance.performance.now()
+  }
+
+  FakeBrowser.prototype.updateScoreboard = function (score) {
+    // Noop
+  }
+
+  FakeBrowser.prototype.updateClock = function (t) {
+    // Noop
+  }
+
+  FakeBrowser.prototype.draw = function (position, color) {
+    // Noop
+  }
+
+  FakeBrowser.prototype.eventStream = function (callback) {
+    var afterGameOver = (this.now() + this.opts.DURATION + 1) * 1000
+    callback(afterGameOver)
+  }
+
+  FakeBrowser.prototype.updateBackground = function () {
+    // Noop
+  }
+
+  FakeBrowser.prototype.updateMask = function (ego) {
+    // Noop
+  }
+
+  FakeBrowser.prototype.updateData = function () {
+    // Noop
+  }
+
+  FakeBrowser.prototype.exportFile = function (data, filename) {
+    var content = JSON.stringify(data)
+    fs.writeFileSync('data/' + filename, content, function (err) {
+      if (err) throw err;
+    });
+  }
+
+  return FakeBrowser
+}())
+
 
 acsg.World = (function () {
 
@@ -278,7 +1181,6 @@ acsg.Player = (function () {
       return new Player(config)
     }
     this.world = config.world
-    this.browser = this.world.browser
     this.id = this.world.players.length
     this.position = this.world.randomPosition()
     this.teamIdx = Math.floor(Math.random() * teamColors.length)
@@ -405,10 +1307,10 @@ acsg.Food = (function () {
 }())
 
 
-acsg.ACSG = (function () {
+acsg.Game = (function () {
 
-  var ACSG = function (g) {
-    if (!(this instanceof ACSG)) return new ACSG(g)
+  var Game = function (g) {
+    if (!(this instanceof Game)) return new Game(g)
 
     // Check if this is a new game or a replay.
     if (g.id) {          // A replay.
@@ -417,8 +1319,10 @@ acsg.ACSG = (function () {
       this.actionTimestamps = g.data.timestamps
       this.opts = g.config
       this.replay = true
+      this.opts.REAL_TIME = g.config.REAL_TIME || false
     } else {             // A new game.
       this.opts = opts = g.config || {}
+      this.opts.REAL_TIME = true
       this.opts.NUM_PLAYERS = opts.NUM_PLAYERS || 10
       this.opts.INCLUDE_HUMAN = opts.INCLUDE_HUMAN || false
       this.opts.DURATION = opts.DURATION || 120
@@ -429,26 +1333,30 @@ acsg.ACSG = (function () {
       this.opts.BOT_MOTION_RATE = opts.BOT_MOTION_RATE || 8
       this.opts.BLOCK_SIZE = opts.BLOCK_SIZE || 15
       this.opts.BLOCK_PADDING = opts.BLOCK_PADDING || 1
-      this.opts.SEED = opts.SEED || performance.now()
       this.opts.BOT_STRATEGY = opts.BOT_STRATEGY || 'random'
       this.UUID = uuidv4()
       this.replay = false
       this.actions = []
       this.actionTimestamps = []
     }
+    if (this.opts.IS_CLI) {
+      this.browser = acsg.FakeBrowser(this.opts)
+    } else {
+      this.browser = acsg.Browser(this.opts)
+    }
 
     if (this.opts.INCLUDE_HUMAN) {
-      this._NUM_BOTS = this.opts.NUM_PLAYERS - 1
+      this.numBots = this.opts.NUM_PLAYERS - 1
     } else {
-      this._NUM_BOTS = this.opts.NUM_PLAYERS
+      this.numBots = this.opts.NUM_PLAYERS
     }
+    this.opts.SEED = this.opts.SEED || this.browser.now()
 
     // Seed event RNG.
     Math.seedrandom(this.opts.SEED)
     this.eventRandomizer = new Rands()
 
     this.gameOver = false
-    this.browser = acsg.Browser(this.opts)
     this.world = acsg.World(this.opts)
 
     // Create the human.
@@ -457,7 +1365,7 @@ acsg.ACSG = (function () {
     }
 
     // Create the bots.
-    for (var i = 0; i < this._NUM_BOTS; i++) {
+    for (var i = 0; i < this.numBots; i++) {
       this.world.spawnBot()
     }
 
@@ -470,7 +1378,7 @@ acsg.ACSG = (function () {
     //
     // Key bindings
     //
-    if (this.opts.INCLUDE_HUMAN) {
+    if (this.opts.INCLUDE_HUMAN && !this.opts.IS_CLI) {
       directions = ['up', 'down', 'left', 'right']
       lock = false
       directions.forEach(function (direction) {
@@ -490,7 +1398,7 @@ acsg.ACSG = (function () {
 
   }
 
-  ACSG.prototype.serialize = function () {
+  Game.prototype.serializeActions = function () {
     return JSON.stringify({
       'id': this.UUID,
       'data': {
@@ -501,7 +1409,7 @@ acsg.ACSG = (function () {
     })
   }
 
-  ACSG.prototype.serialize2 = function () {
+  Game.prototype.serializeFullState = function () {
     var data = {
       'id': this.UUID,
       'data': {
@@ -509,32 +1417,34 @@ acsg.ACSG = (function () {
         'timestamps': this.actionTimestamps
       },
       'config': this.opts,
-      // 'states': this.states,
     }
     data = extend(data, this.world.serialize())
-    return JSON.stringify(data)
+    return data
   }
 
-  ACSG.prototype.run = function (callback) {
+  Game.prototype.run = function (callback) {
     callback = callback || function () { console.log('Game finished.') }
-    start = performance.now()
+    start = this.browser.now()
 
     this.world.recordState(0)
 
-    // Pregenerate bot motion timings, sans direction.
+    // Pregenerate bot motion timings, sans direction. Since the timing and
+    // direction of all bot movement is deterministic based on the seed
+    // to the random number generator, we can pregenerate a sequence of
+    // time+bot pairs to execute later.
     botActionTimestamps = []
     botActions = []
     whichBotMoves = []
     t = 0
     humanOffset = this.opts.INCLUDE_HUMAN ? 1 : 0
     while (true) {
-      waitTime = this.eventRandomizer.exponential(this.opts.BOT_MOTION_RATE * this._NUM_BOTS)
+      waitTime = this.eventRandomizer.exponential(this.opts.BOT_MOTION_RATE * this.numBots)
       if (t + waitTime > this.opts.DURATION) {
         break
       }
       t += waitTime
       botActionTimestamps.push(t)
-      idx = Math.floor(Math.random() * this._NUM_BOTS) + humanOffset
+      idx = Math.floor(Math.random() * this.numBots) + humanOffset
       whichBotMoves.push(idx)
     }
     lastBotActionIdx = -1
@@ -545,10 +1455,11 @@ acsg.ACSG = (function () {
     completed = false
     self = this
     players = self.world.players
-    this.browser.eventStream()(function () {
-      elapsedTime = (performance.now() - start) / 1000
+    this.browser.eventStream(function (now) {
+      elapsedTime = (now - start) / 1000
 
-      // If original game w/ human, register all moves.
+      // If original game w/ human player, register any human moves
+      // added to the actions list with the current tick's timestamp
       if (self.opts.INCLUDE_HUMAN && !self.replay) {
         numActionsToDo = self.actions.length - self.actionTimestamps.length
         for (var i = 0; i < numActionsToDo; i++) {
@@ -584,45 +1495,48 @@ acsg.ACSG = (function () {
 
       self.browser.updateBackground()
 
-
       // Draw the players and food
       self.world.players.forEach(function (p) {
-        self.browser.data[(p.position[0]) * self.opts.COLUMNS + p.position[1]] = p.color
+        self.browser.draw(p.position, p.color)
       })
       self.world.food.forEach(function (f) {
-        self.browser.data[(f.position[0]) * self.opts.COLUMNS + f.position[1]] = f.color
+        self.browser.draw(f.position, f.color)
       })
 
-      // Update the clock and background texture
+      // Update the UI
       self.browser.updateClock(self.opts.DURATION - elapsedTime)
       self.browser.updateMask(ego)
+      self.browser.updateData()
 
-
-      if (lastBotActionIdx < whichBotMoves.length - 1) {
-        self.browser.updateData()
-      } else if (!self.gameOver) {
-        self.gameOver = true
-        callback()
+      if (lastBotActionIdx >= whichBotMoves.length - 1) {
+        if (!self.gameOver) {
+          self.gameOver = true
+          callback()
+        }
       }
     })
   }
 
   // Download the serialized game as a JSON file.
-  ACSG.prototype.exportFullGameData = function () {
-    self.browser.exportFile(this.serialize2())
+  Game.prototype.exportFullGameData = function () {
+    var data = this.serializeFullState(),
+        filename = filenameFrom(data)
+
+    self.browser.exportFile(data, filename)
+    return filename
   }
 
-  return ACSG
+  return Game
 }())
 
 module.exports = acsg
 
-},{"./pixels":69,"dom-css":6,"gaussian":9,"mouse-position":15,"mousetrap":16,"parse-color":17,"rands":21,"seedrandom":55,"util":76,"uuid/v4":68}],2:[function(require,module,exports){
-var acsg = require('./acsg2')
+},{"./pixels":75,"dom-css":12,"fs":2,"gaussian":15,"mouse-position":21,"mousetrap":22,"parse-color":23,"perf_hooks":2,"rands":27,"seedrandom":61,"util":6,"uuid/v4":74}],8:[function(require,module,exports){
+var acsg = require('./acsg')
 
-game = acsg.ACSG({ 'config': {
+game = acsg.Game({ 'config': {
   NUM_PLAYERS: 9,
-  DURATION: 10,
+  DURATION: 60,
   INCLUDE_HUMAN: true,
   BOT_STRATEGY: 'random',
   ROWS: 25,
@@ -635,7 +1549,7 @@ game = acsg.ACSG({ 'config': {
   SEED: '19145822646'
 }})
 
-game.run(function () { console.log(game.serialize()) })
+game.run(function () { console.log(game.serializeActions()) })
 
 // g = {'id': '9ecf49af-b9b6-42a4-bb17-9d833f2fef99', 'data': {'actions': ['right', 'right', 'right', 'up', 'left', 'left', 'up', 'up', 'up', 'up', 'up', 'right', 'down', 'down', 'down', 'down', 'down', 'down', 'down', 'down', 'left', 'left', 'down', 'down', 'left', 'down', 'down', 'right', 'right', 'right', 'right', 'right', 'right', 'right', 'right', 'down', 'down', 'down', 'down', 'down', 'down', 'down', 'down', 'right', 'right', 'right', 'down', 'down', 'right', 'right', 'right', 'right', 'right', 'up', 'down', 'down', 'right', 'right', 'right', 'right', 'left', 'left', 'up', 'up', 'left', 'up', 'up', 'up', 'up', 'left', 'left', 'up', 'up', 'up', 'left', 'up', 'up', 'up', 'up', 'up', 'up', 'up', 'up', 'up', 'right', 'right', 'down', 'down', 'down', 'down', 'down', 'down', 'down', 'down', 'up', 'up', 'up', 'up', 'up', 'up', 'up', 'up', 'up', 'right', 'right', 'right', 'right', 'right', 'right', 'right', 'up', 'up', 'up', 'up', 'up', 'left', 'left', 'left', 'left', 'left', 'left', 'left', 'left', 'down', 'down', 'left', 'left', 'down', 'down', 'left', 'left', 'left', 'left'], 'timestamps': [0.3936000000103377, 0.561199999996461, 0.7281000000075437, 0.8938000000198372, 1.0938000000023749, 1.2613000000128523, 1.377200000017183, 1.5278000000107568, 1.6604999999981374, 1.8270999999949709, 1.9605000000155997, 2.160200000012992, 2.343800000002375, 2.493900000001304, 2.6098000000056345, 2.7761999999929685, 2.9275000000197906, 3.0605000000214204, 3.2098000000114553, 3.3769000000029337, 3.4611000000149943, 3.6107999999949243, 3.760500000003958, 3.8932000000204425, 4.027100000006612, 4.193800000008196, 4.343699999997625, 4.510399999999208, 4.644300000014482, 4.7766000000119675, 4.910800000012387, 5.044099999999162, 5.159400000004098, 5.310300000011921, 5.443499999993946, 5.593599999992875, 5.727100000018254, 5.84340000001248, 5.992800000007264, 6.110600000014529, 6.242800000007264, 6.394100000004983, 6.510800000018207, 6.642600000021048, 6.794300000008661, 6.9267000000108965, 7.110799999994924, 7.243900000001304, 7.4275999999954365, 7.560900000011316, 7.710600000020349, 7.860500000009779, 8.010800000018207, 8.159400000004098, 8.359800000005635, 8.510899999993853, 8.593900000007125, 8.743700000020908, 8.876400000008289, 9.027400000020862, 9.192800000018906, 9.359700000000885, 9.410800000012387, 9.544099999999162, 9.626799999998184, 9.742499999993015, 9.926200000016252, 10.093599999992875, 10.260399999999208, 10.35920000000624, 10.527400000020862, 10.677200000005541, 10.827699999994365, 10.9600999999966, 11.143700000015087, 11.309999999997672, 11.477100000018254, 11.644000000000233, 11.793700000009267, 11.94330000001355, 12.09350000001723, 12.243500000011409, 12.376300000003539, 12.527400000020862, 12.627200000017183, 12.777400000020862, 12.893200000020443, 13.043900000018766, 13.192899999994552, 13.32719999999972, 13.459900000016205, 13.610500000009779, 13.743700000020908, 13.910399999993388, 14.075800000020536, 14.22609999999986, 14.377299999992829, 14.527000000001863, 14.660200000012992, 14.810599999997066, 14.96020000000135, 15.109800000005635, 15.277200000011362, 15.51469999999972, 15.62609999999404, 15.777300000016112, 15.892500000016298, 16.043800000014016, 16.193800000008196, 16.34320000000298, 16.49350000001141, 16.643800000019837, 16.793800000014016, 16.943499999993946, 17.092700000008335, 17.260500000003958, 17.392500000016298, 17.55999999999767, 17.71020000000135, 17.86040000000503, 18.025900000007823, 18.176700000010896, 18.35950000002049, 18.443700000003446, 18.527000000001863, 18.693900000012945, 18.842499999998836, 18.993700000020908, 19.159400000004098, 19.30920000001788, 19.477000000013504, 19.659299999999348, 19.793900000018766]}, 'config': {'NUM_PLAYERS': 9, 'DURATION': 20, 'INCLUDE_HUMAN': true, 'BOT_STRATEGY': 'random', 'ROWS': 25, 'COLUMNS': 25, 'NUM_FOOD': 8, 'VISIBILITY': 50, 'BOT_MOTION_RATE': 4, 'BLOCK_SIZE': 12, 'BLOCK_PADDING': 1, 'SEED': '19145822646'}}
 //
@@ -643,7 +1557,7 @@ game.run(function () { console.log(game.serialize()) })
 //
 // game.run()
 
-},{"./acsg2":1}],3:[function(require,module,exports){
+},{"./acsg":7}],9:[function(require,module,exports){
 /* The following list is defined in React's core */
 var IS_UNITLESS = {
   animationIterationCount: true,
@@ -685,7 +1599,7 @@ module.exports = function(name, value) {
     return value;
   }
 };
-},{}],4:[function(require,module,exports){
+},{}],10:[function(require,module,exports){
 /* MIT license */
 
 module.exports = {
@@ -1385,7 +2299,7 @@ for (var key in cssKeywords) {
   reverseKeywords[JSON.stringify(cssKeywords[key])] = key;
 }
 
-},{}],5:[function(require,module,exports){
+},{}],11:[function(require,module,exports){
 var conversions = require("./conversions");
 
 var convert = function() {
@@ -1478,7 +2392,7 @@ Converter.prototype.getValues = function(space) {
 });
 
 module.exports = convert;
-},{"./conversions":4}],6:[function(require,module,exports){
+},{"./conversions":10}],12:[function(require,module,exports){
 var prefix = require('prefix-style')
 var toCamelCase = require('to-camel-case')
 var cache = { 'float': 'cssFloat' }
@@ -1541,7 +2455,7 @@ module.exports.get = function (element, properties) {
   }
 }
 
-},{"add-px-to-style":3,"prefix-style":18,"to-camel-case":63}],7:[function(require,module,exports){
+},{"add-px-to-style":9,"prefix-style":24,"to-camel-case":69}],13:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -1845,7 +2759,7 @@ function isUndefined(arg) {
   return arg === void 0;
 }
 
-},{}],8:[function(require,module,exports){
+},{}],14:[function(require,module,exports){
 module.exports = function flatten(list, depth) {
   depth = (typeof depth == 'number') ? depth : Infinity;
 
@@ -1870,7 +2784,7 @@ module.exports = function flatten(list, depth) {
   }
 };
 
-},{}],9:[function(require,module,exports){
+},{}],15:[function(require,module,exports){
 (function(exports) {
 
   // Complementary error function
@@ -1985,7 +2899,7 @@ module.exports = function flatten(list, depth) {
     ? function(e) { module.exports = e; }
     : function(e) { this["gaussian"] = e; });
 
-},{}],10:[function(require,module,exports){
+},{}],16:[function(require,module,exports){
 
 /**
  * isArray
@@ -2020,7 +2934,7 @@ module.exports = isArray || function (val) {
   return !! val && '[object Array]' == str.call(val);
 };
 
-},{}],11:[function(require,module,exports){
+},{}],17:[function(require,module,exports){
 /*!
  * Determine if an object is a Buffer
  *
@@ -2043,7 +2957,7 @@ function isSlowBuffer (obj) {
   return typeof obj.readFloatLE === 'function' && typeof obj.slice === 'function' && isBuffer(obj.slice(0, 0))
 }
 
-},{}],12:[function(require,module,exports){
+},{}],18:[function(require,module,exports){
 /*!
  * is-number <https://github.com/jonschlinkert/is-number>
  *
@@ -2064,7 +2978,7 @@ module.exports = function isNumber(num) {
   return (n - n + 1) >= 0 && num !== '';
 };
 
-},{"kind-of":14}],13:[function(require,module,exports){
+},{"kind-of":20}],19:[function(require,module,exports){
 'use strict';
 
 var strValue = String.prototype.valueOf;
@@ -2086,7 +3000,7 @@ module.exports = function isString(value) {
 	return hasToStringTag ? tryStringObject(value) : toStr.call(value) === strClass;
 };
 
-},{}],14:[function(require,module,exports){
+},{}],20:[function(require,module,exports){
 var isBuffer = require('is-buffer');
 var toString = Object.prototype.toString;
 
@@ -2204,7 +3118,7 @@ module.exports = function kindOf(val) {
   return 'object';
 };
 
-},{"is-buffer":11}],15:[function(require,module,exports){
+},{"is-buffer":17}],21:[function(require,module,exports){
 var Emitter = require('events/')
 
 module.exports = attach
@@ -2256,7 +3170,7 @@ function attach(element, listener) {
 
 }
 
-},{"events/":7}],16:[function(require,module,exports){
+},{"events/":13}],22:[function(require,module,exports){
 /*global define:false */
 /**
  * Copyright 2012-2017 Craig Campbell
@@ -3302,7 +4216,7 @@ function attach(element, listener) {
     }
 }) (typeof window !== 'undefined' ? window : null, typeof  window !== 'undefined' ? document : null);
 
-},{}],17:[function(require,module,exports){
+},{}],23:[function(require,module,exports){
 var convert = require('color-convert');
 
 module.exports = function (cstr) {
@@ -3387,7 +4301,7 @@ module.exports = function (cstr) {
     return res;
 };
 
-},{"color-convert":5}],18:[function(require,module,exports){
+},{"color-convert":11}],24:[function(require,module,exports){
 var div = null
 var prefixes = [ 'Webkit', 'Moz', 'O', 'ms' ]
 
@@ -3419,7 +4333,7 @@ module.exports = function prefixStyle (prop) {
   return false
 }
 
-},{}],19:[function(require,module,exports){
+},{}],25:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -3635,7 +4549,7 @@ function pow(x, n) {
 }
 
 exports.default = binom;
-},{}],20:[function(require,module,exports){
+},{}],26:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -3664,7 +4578,7 @@ function boxmuller(mean, stdev, n, rng) {
 }
 
 exports.default = boxmuller;
-},{}],21:[function(require,module,exports){
+},{}],27:[function(require,module,exports){
 'use strict';
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
@@ -3835,7 +4749,7 @@ function generate(f, length) {
 }
 
 module.exports = Rands;
-},{"./binom":19,"./boxmuller":20}],22:[function(require,module,exports){
+},{"./binom":25,"./boxmuller":26}],28:[function(require,module,exports){
 var GL_FLOAT = 5126
 
 function AttributeRecord () {
@@ -3874,7 +4788,7 @@ module.exports = function wrapAttributeState (
   }
 }
 
-},{}],23:[function(require,module,exports){
+},{}],29:[function(require,module,exports){
 var check = require('./util/check')
 var isTypedArray = require('./util/is-typed-array')
 var isNDArrayLike = require('./util/is-ndarray')
@@ -4251,7 +5165,7 @@ module.exports = function wrapBufferState (gl, stats, config) {
   }
 }
 
-},{"./constants/arraytypes.json":24,"./constants/dtypes.json":25,"./constants/usage.json":27,"./util/check":41,"./util/is-ndarray":46,"./util/is-typed-array":47,"./util/pool":49,"./util/values":52}],24:[function(require,module,exports){
+},{"./constants/arraytypes.json":30,"./constants/dtypes.json":31,"./constants/usage.json":33,"./util/check":47,"./util/is-ndarray":52,"./util/is-typed-array":53,"./util/pool":55,"./util/values":58}],30:[function(require,module,exports){
 module.exports={
   "[object Int8Array]": 5120
 , "[object Int16Array]": 5122
@@ -4265,7 +5179,7 @@ module.exports={
 , "[object ArrayBuffer]": 5121
 }
 
-},{}],25:[function(require,module,exports){
+},{}],31:[function(require,module,exports){
 module.exports={
   "int8": 5120
 , "int16": 5122
@@ -4277,7 +5191,7 @@ module.exports={
 , "float32": 5126
 }
 
-},{}],26:[function(require,module,exports){
+},{}],32:[function(require,module,exports){
 module.exports={
   "points": 0,
   "point": 0,
@@ -4291,14 +5205,14 @@ module.exports={
   "triangle fan": 6
 }
 
-},{}],27:[function(require,module,exports){
+},{}],33:[function(require,module,exports){
 module.exports={
   "static": 35044,
   "dynamic": 35048,
   "stream": 35040
 }
 
-},{}],28:[function(require,module,exports){
+},{}],34:[function(require,module,exports){
 var check = require('./util/check')
 var createEnvironment = require('./util/codegen')
 var loop = require('./util/loop')
@@ -7642,7 +8556,7 @@ module.exports = function reglCore (
   }
 }
 
-},{"./constants/dtypes.json":25,"./constants/primitives.json":26,"./dynamic":29,"./util/check":41,"./util/codegen":43,"./util/is-array-like":45,"./util/is-ndarray":46,"./util/is-typed-array":47,"./util/loop":48}],29:[function(require,module,exports){
+},{"./constants/dtypes.json":31,"./constants/primitives.json":32,"./dynamic":35,"./util/check":47,"./util/codegen":49,"./util/is-array-like":51,"./util/is-ndarray":52,"./util/is-typed-array":53,"./util/loop":54}],35:[function(require,module,exports){
 var VARIABLE_COUNTER = 0
 
 var DYN_FUNC = 0
@@ -7720,7 +8634,7 @@ module.exports = {
   accessor: toAccessorString
 }
 
-},{}],30:[function(require,module,exports){
+},{}],36:[function(require,module,exports){
 var check = require('./util/check')
 var isTypedArray = require('./util/is-typed-array')
 var isNDArrayLike = require('./util/is-ndarray')
@@ -8003,7 +8917,7 @@ module.exports = function wrapElementsState (gl, extensions, bufferState, stats)
   }
 }
 
-},{"./constants/primitives.json":26,"./constants/usage.json":27,"./util/check":41,"./util/is-ndarray":46,"./util/is-typed-array":47,"./util/values":52}],31:[function(require,module,exports){
+},{"./constants/primitives.json":32,"./constants/usage.json":33,"./util/check":47,"./util/is-ndarray":52,"./util/is-typed-array":53,"./util/values":58}],37:[function(require,module,exports){
 var check = require('./util/check')
 
 module.exports = function createExtensionCache (gl, config) {
@@ -8035,7 +8949,7 @@ module.exports = function createExtensionCache (gl, config) {
   }
 }
 
-},{"./util/check":41}],32:[function(require,module,exports){
+},{"./util/check":47}],38:[function(require,module,exports){
 var check = require('./util/check')
 var values = require('./util/values')
 var extend = require('./util/extend')
@@ -8917,7 +9831,7 @@ module.exports = function wrapFBOState (
   })
 }
 
-},{"./util/check":41,"./util/extend":44,"./util/values":52}],33:[function(require,module,exports){
+},{"./util/check":47,"./util/extend":50,"./util/values":58}],39:[function(require,module,exports){
 var GL_SUBPIXEL_BITS = 0x0D50
 var GL_RED_BITS = 0x0D52
 var GL_GREEN_BITS = 0x0D53
@@ -9011,7 +9925,7 @@ module.exports = function (gl, extensions) {
   }
 }
 
-},{}],34:[function(require,module,exports){
+},{}],40:[function(require,module,exports){
 var check = require('./util/check')
 var isTypedArray = require('./util/is-typed-array')
 
@@ -9125,7 +10039,7 @@ module.exports = function wrapReadPixels (
   return readPixels
 }
 
-},{"./util/check":41,"./util/is-typed-array":47}],35:[function(require,module,exports){
+},{"./util/check":47,"./util/is-typed-array":53}],41:[function(require,module,exports){
 var check = require('./util/check')
 var values = require('./util/values')
 
@@ -9357,7 +10271,7 @@ module.exports = function (gl, extensions, limits, stats, config) {
   }
 }
 
-},{"./util/check":41,"./util/values":52}],36:[function(require,module,exports){
+},{"./util/check":47,"./util/values":58}],42:[function(require,module,exports){
 var check = require('./util/check')
 var values = require('./util/values')
 
@@ -9568,7 +10482,7 @@ module.exports = function wrapShaderState (gl, stringStore, stats, config) {
   }
 }
 
-},{"./util/check":41,"./util/values":52}],37:[function(require,module,exports){
+},{"./util/check":47,"./util/values":58}],43:[function(require,module,exports){
 
 module.exports = function stats () {
   return {
@@ -9584,7 +10498,7 @@ module.exports = function stats () {
   }
 }
 
-},{}],38:[function(require,module,exports){
+},{}],44:[function(require,module,exports){
 module.exports = function createStringStore () {
   var stringIds = {'': 0}
   var stringValues = ['']
@@ -9605,7 +10519,7 @@ module.exports = function createStringStore () {
   }
 }
 
-},{}],39:[function(require,module,exports){
+},{}],45:[function(require,module,exports){
 var check = require('./util/check')
 var extend = require('./util/extend')
 var values = require('./util/values')
@@ -11174,7 +12088,7 @@ module.exports = function createTextureSet (
   }
 }
 
-},{"./constants/arraytypes.json":24,"./util/check":41,"./util/extend":44,"./util/is-array-like":45,"./util/is-ndarray":46,"./util/is-typed-array":47,"./util/pool":49,"./util/to-half-float":51,"./util/values":52}],40:[function(require,module,exports){
+},{"./constants/arraytypes.json":30,"./util/check":47,"./util/extend":50,"./util/is-array-like":51,"./util/is-ndarray":52,"./util/is-typed-array":53,"./util/pool":55,"./util/to-half-float":57,"./util/values":58}],46:[function(require,module,exports){
 var GL_QUERY_RESULT_EXT = 0x8866
 var GL_QUERY_RESULT_AVAILABLE_EXT = 0x8867
 var GL_TIME_ELAPSED_EXT = 0x88BF
@@ -11310,7 +12224,7 @@ module.exports = function (gl, extensions) {
   }
 }
 
-},{}],41:[function(require,module,exports){
+},{}],47:[function(require,module,exports){
 // Error checking and parameter validation.
 //
 // Statements for the form `check.someProcedure(...)` get removed by
@@ -11949,14 +12863,14 @@ module.exports = extend(check, {
   textureCube: checkTextureCube
 })
 
-},{"./extend":44,"./is-typed-array":47}],42:[function(require,module,exports){
+},{"./extend":50,"./is-typed-array":53}],48:[function(require,module,exports){
 /* globals performance */
 module.exports =
   (typeof performance !== 'undefined' && performance.now)
   ? function () { return performance.now() }
   : function () { return +(new Date()) }
 
-},{}],43:[function(require,module,exports){
+},{}],49:[function(require,module,exports){
 var extend = require('./extend')
 
 function slice (x) {
@@ -12140,7 +13054,7 @@ module.exports = function createEnvironment () {
   }
 }
 
-},{"./extend":44}],44:[function(require,module,exports){
+},{"./extend":50}],50:[function(require,module,exports){
 module.exports = function (base, opts) {
   var keys = Object.keys(opts)
   for (var i = 0; i < keys.length; ++i) {
@@ -12149,13 +13063,13 @@ module.exports = function (base, opts) {
   return base
 }
 
-},{}],45:[function(require,module,exports){
+},{}],51:[function(require,module,exports){
 var isTypedArray = require('./is-typed-array')
 module.exports = function isArrayLike (s) {
   return Array.isArray(s) || isTypedArray(s)
 }
 
-},{"./is-typed-array":47}],46:[function(require,module,exports){
+},{"./is-typed-array":53}],52:[function(require,module,exports){
 var isTypedArray = require('./is-typed-array')
 
 module.exports = function isNDArrayLike (obj) {
@@ -12170,13 +13084,13 @@ module.exports = function isNDArrayLike (obj) {
       isTypedArray(obj.data)))
 }
 
-},{"./is-typed-array":47}],47:[function(require,module,exports){
+},{"./is-typed-array":53}],53:[function(require,module,exports){
 var dtypes = require('../constants/arraytypes.json')
 module.exports = function (x) {
   return Object.prototype.toString.call(x) in dtypes
 }
 
-},{"../constants/arraytypes.json":24}],48:[function(require,module,exports){
+},{"../constants/arraytypes.json":30}],54:[function(require,module,exports){
 module.exports = function loop (n, f) {
   var result = Array(n)
   for (var i = 0; i < n; ++i) {
@@ -12185,7 +13099,7 @@ module.exports = function loop (n, f) {
   return result
 }
 
-},{}],49:[function(require,module,exports){
+},{}],55:[function(require,module,exports){
 var loop = require('./loop')
 
 var GL_BYTE = 5120
@@ -12279,7 +13193,7 @@ module.exports = {
   freeType: freeType
 }
 
-},{"./loop":48}],50:[function(require,module,exports){
+},{"./loop":54}],56:[function(require,module,exports){
 /* globals requestAnimationFrame, cancelAnimationFrame */
 if (typeof requestAnimationFrame === 'function' &&
     typeof cancelAnimationFrame === 'function') {
@@ -12296,7 +13210,7 @@ if (typeof requestAnimationFrame === 'function' &&
   }
 }
 
-},{}],51:[function(require,module,exports){
+},{}],57:[function(require,module,exports){
 var pool = require('./pool')
 
 var FLOAT = new Float32Array(1)
@@ -12342,12 +13256,12 @@ module.exports = function convertToHalfFloat (array) {
   return ushorts
 }
 
-},{"./pool":49}],52:[function(require,module,exports){
+},{"./pool":55}],58:[function(require,module,exports){
 module.exports = function (obj) {
   return Object.keys(obj).map(function (key) { return obj[key] })
 }
 
-},{}],53:[function(require,module,exports){
+},{}],59:[function(require,module,exports){
 // Context and canvas creation helper functions
 var check = require('./util/check')
 var extend = require('./util/extend')
@@ -12553,7 +13467,7 @@ module.exports = function parseArgs (args_) {
   }
 }
 
-},{"./util/check":41,"./util/extend":44}],54:[function(require,module,exports){
+},{"./util/check":47,"./util/extend":50}],60:[function(require,module,exports){
 var check = require('./lib/util/check')
 var extend = require('./lib/util/extend')
 var dynamic = require('./lib/dynamic')
@@ -13035,7 +13949,7 @@ module.exports = function wrapREGL (args) {
   return regl
 }
 
-},{"./lib/attribute":22,"./lib/buffer":23,"./lib/core":28,"./lib/dynamic":29,"./lib/elements":30,"./lib/extension":31,"./lib/framebuffer":32,"./lib/limits":33,"./lib/read":34,"./lib/renderbuffer":35,"./lib/shader":36,"./lib/stats":37,"./lib/strings":38,"./lib/texture":39,"./lib/timer":40,"./lib/util/check":41,"./lib/util/clock":42,"./lib/util/extend":44,"./lib/util/raf":50,"./lib/webgl":53}],55:[function(require,module,exports){
+},{"./lib/attribute":28,"./lib/buffer":29,"./lib/core":34,"./lib/dynamic":35,"./lib/elements":36,"./lib/extension":37,"./lib/framebuffer":38,"./lib/limits":39,"./lib/read":40,"./lib/renderbuffer":41,"./lib/shader":42,"./lib/stats":43,"./lib/strings":44,"./lib/texture":45,"./lib/timer":46,"./lib/util/check":47,"./lib/util/clock":48,"./lib/util/extend":50,"./lib/util/raf":56,"./lib/webgl":59}],61:[function(require,module,exports){
 // A library of seedable RNGs implemented in Javascript.
 //
 // Usage:
@@ -13097,7 +14011,7 @@ sr.tychei = tychei;
 
 module.exports = sr;
 
-},{"./lib/alea":56,"./lib/tychei":57,"./lib/xor128":58,"./lib/xor4096":59,"./lib/xorshift7":60,"./lib/xorwow":61,"./seedrandom":62}],56:[function(require,module,exports){
+},{"./lib/alea":62,"./lib/tychei":63,"./lib/xor128":64,"./lib/xor4096":65,"./lib/xorshift7":66,"./lib/xorwow":67,"./seedrandom":68}],62:[function(require,module,exports){
 // A port of an algorithm by Johannes Baagøe <baagoe@baagoe.com>, 2010
 // http://baagoe.com/en/RandomMusings/javascript/
 // https://github.com/nquinlan/better-random-numbers-for-javascript-mirror
@@ -13213,7 +14127,7 @@ if (module && module.exports) {
 
 
 
-},{}],57:[function(require,module,exports){
+},{}],63:[function(require,module,exports){
 // A Javascript implementaion of the "Tyche-i" prng algorithm by
 // Samuel Neves and Filipe Araujo.
 // See https://eden.dei.uc.pt/~sneves/pubs/2011-snfa2.pdf
@@ -13318,7 +14232,7 @@ if (module && module.exports) {
 
 
 
-},{}],58:[function(require,module,exports){
+},{}],64:[function(require,module,exports){
 // A Javascript implementaion of the "xor128" prng algorithm by
 // George Marsaglia.  See http://www.jstatsoft.org/v08/i14/paper
 
@@ -13401,7 +14315,7 @@ if (module && module.exports) {
 
 
 
-},{}],59:[function(require,module,exports){
+},{}],65:[function(require,module,exports){
 // A Javascript implementaion of Richard Brent's Xorgens xor4096 algorithm.
 //
 // This fast non-cryptographic random number generator is designed for
@@ -13549,7 +14463,7 @@ if (module && module.exports) {
   (typeof define) == 'function' && define   // present with an AMD loader
 );
 
-},{}],60:[function(require,module,exports){
+},{}],66:[function(require,module,exports){
 // A Javascript implementaion of the "xorshift7" algorithm by
 // François Panneton and Pierre L'ecuyer:
 // "On the Xorgshift Random Number Generators"
@@ -13648,7 +14562,7 @@ if (module && module.exports) {
 );
 
 
-},{}],61:[function(require,module,exports){
+},{}],67:[function(require,module,exports){
 // A Javascript implementaion of the "xorwow" prng algorithm by
 // George Marsaglia.  See http://www.jstatsoft.org/v08/i14/paper
 
@@ -13736,7 +14650,7 @@ if (module && module.exports) {
 
 
 
-},{}],62:[function(require,module,exports){
+},{}],68:[function(require,module,exports){
 /*
 Copyright 2014 David Bau.
 
@@ -13988,7 +14902,7 @@ if ((typeof module) == 'object' && module.exports) {
   Math    // math: package containing random, pow, and seedrandom
 );
 
-},{"crypto":72}],63:[function(require,module,exports){
+},{"crypto":1}],69:[function(require,module,exports){
 
 var space = require('to-space-case')
 
@@ -14011,7 +14925,7 @@ function toCamelCase(string) {
   })
 }
 
-},{"to-space-case":65}],64:[function(require,module,exports){
+},{"to-space-case":71}],70:[function(require,module,exports){
 
 /**
  * Export.
@@ -14080,7 +14994,7 @@ function uncamelize(string) {
   })
 }
 
-},{}],65:[function(require,module,exports){
+},{}],71:[function(require,module,exports){
 
 var clean = require('to-no-case')
 
@@ -14103,7 +15017,7 @@ function toSpaceCase(string) {
   }).trim()
 }
 
-},{"to-no-case":64}],66:[function(require,module,exports){
+},{"to-no-case":70}],72:[function(require,module,exports){
 /**
  * Convert array of 16 byte values to UUID string format of the form:
  * XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX
@@ -14129,7 +15043,7 @@ function bytesToUuid(buf, offset) {
 
 module.exports = bytesToUuid;
 
-},{}],67:[function(require,module,exports){
+},{}],73:[function(require,module,exports){
 // Unique ID creation requires a high quality random # generator.  In the
 // browser this is a little complicated due to unknown quality of Math.random()
 // and inconsistent support for the `crypto` API.  We do the best we can via
@@ -14165,7 +15079,7 @@ if (getRandomValues) {
   };
 }
 
-},{}],68:[function(require,module,exports){
+},{}],74:[function(require,module,exports){
 var rng = require('./lib/rng');
 var bytesToUuid = require('./lib/bytesToUuid');
 
@@ -14196,7 +15110,7 @@ function v4(options, buf, offset) {
 
 module.exports = v4;
 
-},{"./lib/bytesToUuid":66,"./lib/rng":67}],69:[function(require,module,exports){
+},{"./lib/bytesToUuid":72,"./lib/rng":73}],75:[function(require,module,exports){
 var parse = require('parse-color')
 var isnumber = require('is-number')
 var isstring = require('is-string')
@@ -14307,7 +15221,7 @@ Pixels.prototype.update = function (data) {
 
 module.exports = Pixels
 
-},{"./util/convert":70,"./util/layout":71,"is-array":10,"is-number":12,"is-string":13,"parse-color":17,"regl":54}],70:[function(require,module,exports){
+},{"./util/convert":76,"./util/layout":77,"is-array":16,"is-number":18,"is-string":19,"parse-color":23,"regl":60}],76:[function(require,module,exports){
 var flatten = require('flatten')
 var isarray = require('is-array')
 var isnumber = require('is-number')
@@ -14334,7 +15248,7 @@ function convert (data) {
 
 module.exports = convert
 
-},{"flatten":8,"is-array":10,"is-number":12,"is-string":13,"parse-color":17}],71:[function(require,module,exports){
+},{"flatten":14,"is-array":16,"is-number":18,"is-string":19,"parse-color":23}],77:[function(require,module,exports){
 function layout (rows, columns, padding, size, aspect) {
   var grid = []
 
@@ -14351,810 +15265,4 @@ function layout (rows, columns, padding, size, aspect) {
 
 module.exports = layout
 
-},{}],72:[function(require,module,exports){
-
-},{}],73:[function(require,module,exports){
-// shim for using process in browser
-var process = module.exports = {};
-
-// cached from whatever global is present so that test runners that stub it
-// don't break things.  But we need to wrap it in a try catch in case it is
-// wrapped in strict mode code which doesn't define any globals.  It's inside a
-// function because try/catches deoptimize in certain engines.
-
-var cachedSetTimeout;
-var cachedClearTimeout;
-
-function defaultSetTimout() {
-    throw new Error('setTimeout has not been defined');
-}
-function defaultClearTimeout () {
-    throw new Error('clearTimeout has not been defined');
-}
-(function () {
-    try {
-        if (typeof setTimeout === 'function') {
-            cachedSetTimeout = setTimeout;
-        } else {
-            cachedSetTimeout = defaultSetTimout;
-        }
-    } catch (e) {
-        cachedSetTimeout = defaultSetTimout;
-    }
-    try {
-        if (typeof clearTimeout === 'function') {
-            cachedClearTimeout = clearTimeout;
-        } else {
-            cachedClearTimeout = defaultClearTimeout;
-        }
-    } catch (e) {
-        cachedClearTimeout = defaultClearTimeout;
-    }
-} ())
-function runTimeout(fun) {
-    if (cachedSetTimeout === setTimeout) {
-        //normal enviroments in sane situations
-        return setTimeout(fun, 0);
-    }
-    // if setTimeout wasn't available but was latter defined
-    if ((cachedSetTimeout === defaultSetTimout || !cachedSetTimeout) && setTimeout) {
-        cachedSetTimeout = setTimeout;
-        return setTimeout(fun, 0);
-    }
-    try {
-        // when when somebody has screwed with setTimeout but no I.E. maddness
-        return cachedSetTimeout(fun, 0);
-    } catch(e){
-        try {
-            // When we are in I.E. but the script has been evaled so I.E. doesn't trust the global object when called normally
-            return cachedSetTimeout.call(null, fun, 0);
-        } catch(e){
-            // same as above but when it's a version of I.E. that must have the global object for 'this', hopfully our context correct otherwise it will throw a global error
-            return cachedSetTimeout.call(this, fun, 0);
-        }
-    }
-
-
-}
-function runClearTimeout(marker) {
-    if (cachedClearTimeout === clearTimeout) {
-        //normal enviroments in sane situations
-        return clearTimeout(marker);
-    }
-    // if clearTimeout wasn't available but was latter defined
-    if ((cachedClearTimeout === defaultClearTimeout || !cachedClearTimeout) && clearTimeout) {
-        cachedClearTimeout = clearTimeout;
-        return clearTimeout(marker);
-    }
-    try {
-        // when when somebody has screwed with setTimeout but no I.E. maddness
-        return cachedClearTimeout(marker);
-    } catch (e){
-        try {
-            // When we are in I.E. but the script has been evaled so I.E. doesn't  trust the global object when called normally
-            return cachedClearTimeout.call(null, marker);
-        } catch (e){
-            // same as above but when it's a version of I.E. that must have the global object for 'this', hopfully our context correct otherwise it will throw a global error.
-            // Some versions of I.E. have different rules for clearTimeout vs setTimeout
-            return cachedClearTimeout.call(this, marker);
-        }
-    }
-
-
-
-}
-var queue = [];
-var draining = false;
-var currentQueue;
-var queueIndex = -1;
-
-function cleanUpNextTick() {
-    if (!draining || !currentQueue) {
-        return;
-    }
-    draining = false;
-    if (currentQueue.length) {
-        queue = currentQueue.concat(queue);
-    } else {
-        queueIndex = -1;
-    }
-    if (queue.length) {
-        drainQueue();
-    }
-}
-
-function drainQueue() {
-    if (draining) {
-        return;
-    }
-    var timeout = runTimeout(cleanUpNextTick);
-    draining = true;
-
-    var len = queue.length;
-    while(len) {
-        currentQueue = queue;
-        queue = [];
-        while (++queueIndex < len) {
-            if (currentQueue) {
-                currentQueue[queueIndex].run();
-            }
-        }
-        queueIndex = -1;
-        len = queue.length;
-    }
-    currentQueue = null;
-    draining = false;
-    runClearTimeout(timeout);
-}
-
-process.nextTick = function (fun) {
-    var args = new Array(arguments.length - 1);
-    if (arguments.length > 1) {
-        for (var i = 1; i < arguments.length; i++) {
-            args[i - 1] = arguments[i];
-        }
-    }
-    queue.push(new Item(fun, args));
-    if (queue.length === 1 && !draining) {
-        runTimeout(drainQueue);
-    }
-};
-
-// v8 likes predictible objects
-function Item(fun, array) {
-    this.fun = fun;
-    this.array = array;
-}
-Item.prototype.run = function () {
-    this.fun.apply(null, this.array);
-};
-process.title = 'browser';
-process.browser = true;
-process.env = {};
-process.argv = [];
-process.version = ''; // empty string to avoid regexp issues
-process.versions = {};
-
-function noop() {}
-
-process.on = noop;
-process.addListener = noop;
-process.once = noop;
-process.off = noop;
-process.removeListener = noop;
-process.removeAllListeners = noop;
-process.emit = noop;
-
-process.binding = function (name) {
-    throw new Error('process.binding is not supported');
-};
-
-process.cwd = function () { return '/' };
-process.chdir = function (dir) {
-    throw new Error('process.chdir is not supported');
-};
-process.umask = function() { return 0; };
-
-},{}],74:[function(require,module,exports){
-if (typeof Object.create === 'function') {
-  // implementation from standard node.js 'util' module
-  module.exports = function inherits(ctor, superCtor) {
-    ctor.super_ = superCtor
-    ctor.prototype = Object.create(superCtor.prototype, {
-      constructor: {
-        value: ctor,
-        enumerable: false,
-        writable: true,
-        configurable: true
-      }
-    });
-  };
-} else {
-  // old school shim for old browsers
-  module.exports = function inherits(ctor, superCtor) {
-    ctor.super_ = superCtor
-    var TempCtor = function () {}
-    TempCtor.prototype = superCtor.prototype
-    ctor.prototype = new TempCtor()
-    ctor.prototype.constructor = ctor
-  }
-}
-
-},{}],75:[function(require,module,exports){
-module.exports = function isBuffer(arg) {
-  return arg && typeof arg === 'object'
-    && typeof arg.copy === 'function'
-    && typeof arg.fill === 'function'
-    && typeof arg.readUInt8 === 'function';
-}
-},{}],76:[function(require,module,exports){
-(function (process,global){
-// Copyright Joyent, Inc. and other Node contributors.
-//
-// Permission is hereby granted, free of charge, to any person obtaining a
-// copy of this software and associated documentation files (the
-// "Software"), to deal in the Software without restriction, including
-// without limitation the rights to use, copy, modify, merge, publish,
-// distribute, sublicense, and/or sell copies of the Software, and to permit
-// persons to whom the Software is furnished to do so, subject to the
-// following conditions:
-//
-// The above copyright notice and this permission notice shall be included
-// in all copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
-// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
-// NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
-// DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-// OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
-// USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-var formatRegExp = /%[sdj%]/g;
-exports.format = function(f) {
-  if (!isString(f)) {
-    var objects = [];
-    for (var i = 0; i < arguments.length; i++) {
-      objects.push(inspect(arguments[i]));
-    }
-    return objects.join(' ');
-  }
-
-  var i = 1;
-  var args = arguments;
-  var len = args.length;
-  var str = String(f).replace(formatRegExp, function(x) {
-    if (x === '%%') return '%';
-    if (i >= len) return x;
-    switch (x) {
-      case '%s': return String(args[i++]);
-      case '%d': return Number(args[i++]);
-      case '%j':
-        try {
-          return JSON.stringify(args[i++]);
-        } catch (_) {
-          return '[Circular]';
-        }
-      default:
-        return x;
-    }
-  });
-  for (var x = args[i]; i < len; x = args[++i]) {
-    if (isNull(x) || !isObject(x)) {
-      str += ' ' + x;
-    } else {
-      str += ' ' + inspect(x);
-    }
-  }
-  return str;
-};
-
-
-// Mark that a method should not be used.
-// Returns a modified function which warns once by default.
-// If --no-deprecation is set, then it is a no-op.
-exports.deprecate = function(fn, msg) {
-  // Allow for deprecating things in the process of starting up.
-  if (isUndefined(global.process)) {
-    return function() {
-      return exports.deprecate(fn, msg).apply(this, arguments);
-    };
-  }
-
-  if (process.noDeprecation === true) {
-    return fn;
-  }
-
-  var warned = false;
-  function deprecated() {
-    if (!warned) {
-      if (process.throwDeprecation) {
-        throw new Error(msg);
-      } else if (process.traceDeprecation) {
-        console.trace(msg);
-      } else {
-        console.error(msg);
-      }
-      warned = true;
-    }
-    return fn.apply(this, arguments);
-  }
-
-  return deprecated;
-};
-
-
-var debugs = {};
-var debugEnviron;
-exports.debuglog = function(set) {
-  if (isUndefined(debugEnviron))
-    debugEnviron = process.env.NODE_DEBUG || '';
-  set = set.toUpperCase();
-  if (!debugs[set]) {
-    if (new RegExp('\\b' + set + '\\b', 'i').test(debugEnviron)) {
-      var pid = process.pid;
-      debugs[set] = function() {
-        var msg = exports.format.apply(exports, arguments);
-        console.error('%s %d: %s', set, pid, msg);
-      };
-    } else {
-      debugs[set] = function() {};
-    }
-  }
-  return debugs[set];
-};
-
-
-/**
- * Echos the value of a value. Trys to print the value out
- * in the best way possible given the different types.
- *
- * @param {Object} obj The object to print out.
- * @param {Object} opts Optional options object that alters the output.
- */
-/* legacy: obj, showHidden, depth, colors*/
-function inspect(obj, opts) {
-  // default options
-  var ctx = {
-    seen: [],
-    stylize: stylizeNoColor
-  };
-  // legacy...
-  if (arguments.length >= 3) ctx.depth = arguments[2];
-  if (arguments.length >= 4) ctx.colors = arguments[3];
-  if (isBoolean(opts)) {
-    // legacy...
-    ctx.showHidden = opts;
-  } else if (opts) {
-    // got an "options" object
-    exports._extend(ctx, opts);
-  }
-  // set default options
-  if (isUndefined(ctx.showHidden)) ctx.showHidden = false;
-  if (isUndefined(ctx.depth)) ctx.depth = 2;
-  if (isUndefined(ctx.colors)) ctx.colors = false;
-  if (isUndefined(ctx.customInspect)) ctx.customInspect = true;
-  if (ctx.colors) ctx.stylize = stylizeWithColor;
-  return formatValue(ctx, obj, ctx.depth);
-}
-exports.inspect = inspect;
-
-
-// http://en.wikipedia.org/wiki/ANSI_escape_code#graphics
-inspect.colors = {
-  'bold' : [1, 22],
-  'italic' : [3, 23],
-  'underline' : [4, 24],
-  'inverse' : [7, 27],
-  'white' : [37, 39],
-  'grey' : [90, 39],
-  'black' : [30, 39],
-  'blue' : [34, 39],
-  'cyan' : [36, 39],
-  'green' : [32, 39],
-  'magenta' : [35, 39],
-  'red' : [31, 39],
-  'yellow' : [33, 39]
-};
-
-// Don't use 'blue' not visible on cmd.exe
-inspect.styles = {
-  'special': 'cyan',
-  'number': 'yellow',
-  'boolean': 'yellow',
-  'undefined': 'grey',
-  'null': 'bold',
-  'string': 'green',
-  'date': 'magenta',
-  // "name": intentionally not styling
-  'regexp': 'red'
-};
-
-
-function stylizeWithColor(str, styleType) {
-  var style = inspect.styles[styleType];
-
-  if (style) {
-    return '\u001b[' + inspect.colors[style][0] + 'm' + str +
-           '\u001b[' + inspect.colors[style][1] + 'm';
-  } else {
-    return str;
-  }
-}
-
-
-function stylizeNoColor(str, styleType) {
-  return str;
-}
-
-
-function arrayToHash(array) {
-  var hash = {};
-
-  array.forEach(function(val, idx) {
-    hash[val] = true;
-  });
-
-  return hash;
-}
-
-
-function formatValue(ctx, value, recurseTimes) {
-  // Provide a hook for user-specified inspect functions.
-  // Check that value is an object with an inspect function on it
-  if (ctx.customInspect &&
-      value &&
-      isFunction(value.inspect) &&
-      // Filter out the util module, it's inspect function is special
-      value.inspect !== exports.inspect &&
-      // Also filter out any prototype objects using the circular check.
-      !(value.constructor && value.constructor.prototype === value)) {
-    var ret = value.inspect(recurseTimes, ctx);
-    if (!isString(ret)) {
-      ret = formatValue(ctx, ret, recurseTimes);
-    }
-    return ret;
-  }
-
-  // Primitive types cannot have properties
-  var primitive = formatPrimitive(ctx, value);
-  if (primitive) {
-    return primitive;
-  }
-
-  // Look up the keys of the object.
-  var keys = Object.keys(value);
-  var visibleKeys = arrayToHash(keys);
-
-  if (ctx.showHidden) {
-    keys = Object.getOwnPropertyNames(value);
-  }
-
-  // IE doesn't make error fields non-enumerable
-  // http://msdn.microsoft.com/en-us/library/ie/dww52sbt(v=vs.94).aspx
-  if (isError(value)
-      && (keys.indexOf('message') >= 0 || keys.indexOf('description') >= 0)) {
-    return formatError(value);
-  }
-
-  // Some type of object without properties can be shortcutted.
-  if (keys.length === 0) {
-    if (isFunction(value)) {
-      var name = value.name ? ': ' + value.name : '';
-      return ctx.stylize('[Function' + name + ']', 'special');
-    }
-    if (isRegExp(value)) {
-      return ctx.stylize(RegExp.prototype.toString.call(value), 'regexp');
-    }
-    if (isDate(value)) {
-      return ctx.stylize(Date.prototype.toString.call(value), 'date');
-    }
-    if (isError(value)) {
-      return formatError(value);
-    }
-  }
-
-  var base = '', array = false, braces = ['{', '}'];
-
-  // Make Array say that they are Array
-  if (isArray(value)) {
-    array = true;
-    braces = ['[', ']'];
-  }
-
-  // Make functions say that they are functions
-  if (isFunction(value)) {
-    var n = value.name ? ': ' + value.name : '';
-    base = ' [Function' + n + ']';
-  }
-
-  // Make RegExps say that they are RegExps
-  if (isRegExp(value)) {
-    base = ' ' + RegExp.prototype.toString.call(value);
-  }
-
-  // Make dates with properties first say the date
-  if (isDate(value)) {
-    base = ' ' + Date.prototype.toUTCString.call(value);
-  }
-
-  // Make error with message first say the error
-  if (isError(value)) {
-    base = ' ' + formatError(value);
-  }
-
-  if (keys.length === 0 && (!array || value.length == 0)) {
-    return braces[0] + base + braces[1];
-  }
-
-  if (recurseTimes < 0) {
-    if (isRegExp(value)) {
-      return ctx.stylize(RegExp.prototype.toString.call(value), 'regexp');
-    } else {
-      return ctx.stylize('[Object]', 'special');
-    }
-  }
-
-  ctx.seen.push(value);
-
-  var output;
-  if (array) {
-    output = formatArray(ctx, value, recurseTimes, visibleKeys, keys);
-  } else {
-    output = keys.map(function(key) {
-      return formatProperty(ctx, value, recurseTimes, visibleKeys, key, array);
-    });
-  }
-
-  ctx.seen.pop();
-
-  return reduceToSingleString(output, base, braces);
-}
-
-
-function formatPrimitive(ctx, value) {
-  if (isUndefined(value))
-    return ctx.stylize('undefined', 'undefined');
-  if (isString(value)) {
-    var simple = '\'' + JSON.stringify(value).replace(/^"|"$/g, '')
-                                             .replace(/'/g, "\\'")
-                                             .replace(/\\"/g, '"') + '\'';
-    return ctx.stylize(simple, 'string');
-  }
-  if (isNumber(value))
-    return ctx.stylize('' + value, 'number');
-  if (isBoolean(value))
-    return ctx.stylize('' + value, 'boolean');
-  // For some reason typeof null is "object", so special case here.
-  if (isNull(value))
-    return ctx.stylize('null', 'null');
-}
-
-
-function formatError(value) {
-  return '[' + Error.prototype.toString.call(value) + ']';
-}
-
-
-function formatArray(ctx, value, recurseTimes, visibleKeys, keys) {
-  var output = [];
-  for (var i = 0, l = value.length; i < l; ++i) {
-    if (hasOwnProperty(value, String(i))) {
-      output.push(formatProperty(ctx, value, recurseTimes, visibleKeys,
-          String(i), true));
-    } else {
-      output.push('');
-    }
-  }
-  keys.forEach(function(key) {
-    if (!key.match(/^\d+$/)) {
-      output.push(formatProperty(ctx, value, recurseTimes, visibleKeys,
-          key, true));
-    }
-  });
-  return output;
-}
-
-
-function formatProperty(ctx, value, recurseTimes, visibleKeys, key, array) {
-  var name, str, desc;
-  desc = Object.getOwnPropertyDescriptor(value, key) || { value: value[key] };
-  if (desc.get) {
-    if (desc.set) {
-      str = ctx.stylize('[Getter/Setter]', 'special');
-    } else {
-      str = ctx.stylize('[Getter]', 'special');
-    }
-  } else {
-    if (desc.set) {
-      str = ctx.stylize('[Setter]', 'special');
-    }
-  }
-  if (!hasOwnProperty(visibleKeys, key)) {
-    name = '[' + key + ']';
-  }
-  if (!str) {
-    if (ctx.seen.indexOf(desc.value) < 0) {
-      if (isNull(recurseTimes)) {
-        str = formatValue(ctx, desc.value, null);
-      } else {
-        str = formatValue(ctx, desc.value, recurseTimes - 1);
-      }
-      if (str.indexOf('\n') > -1) {
-        if (array) {
-          str = str.split('\n').map(function(line) {
-            return '  ' + line;
-          }).join('\n').substr(2);
-        } else {
-          str = '\n' + str.split('\n').map(function(line) {
-            return '   ' + line;
-          }).join('\n');
-        }
-      }
-    } else {
-      str = ctx.stylize('[Circular]', 'special');
-    }
-  }
-  if (isUndefined(name)) {
-    if (array && key.match(/^\d+$/)) {
-      return str;
-    }
-    name = JSON.stringify('' + key);
-    if (name.match(/^"([a-zA-Z_][a-zA-Z_0-9]*)"$/)) {
-      name = name.substr(1, name.length - 2);
-      name = ctx.stylize(name, 'name');
-    } else {
-      name = name.replace(/'/g, "\\'")
-                 .replace(/\\"/g, '"')
-                 .replace(/(^"|"$)/g, "'");
-      name = ctx.stylize(name, 'string');
-    }
-  }
-
-  return name + ': ' + str;
-}
-
-
-function reduceToSingleString(output, base, braces) {
-  var numLinesEst = 0;
-  var length = output.reduce(function(prev, cur) {
-    numLinesEst++;
-    if (cur.indexOf('\n') >= 0) numLinesEst++;
-    return prev + cur.replace(/\u001b\[\d\d?m/g, '').length + 1;
-  }, 0);
-
-  if (length > 60) {
-    return braces[0] +
-           (base === '' ? '' : base + '\n ') +
-           ' ' +
-           output.join(',\n  ') +
-           ' ' +
-           braces[1];
-  }
-
-  return braces[0] + base + ' ' + output.join(', ') + ' ' + braces[1];
-}
-
-
-// NOTE: These type checking functions intentionally don't use `instanceof`
-// because it is fragile and can be easily faked with `Object.create()`.
-function isArray(ar) {
-  return Array.isArray(ar);
-}
-exports.isArray = isArray;
-
-function isBoolean(arg) {
-  return typeof arg === 'boolean';
-}
-exports.isBoolean = isBoolean;
-
-function isNull(arg) {
-  return arg === null;
-}
-exports.isNull = isNull;
-
-function isNullOrUndefined(arg) {
-  return arg == null;
-}
-exports.isNullOrUndefined = isNullOrUndefined;
-
-function isNumber(arg) {
-  return typeof arg === 'number';
-}
-exports.isNumber = isNumber;
-
-function isString(arg) {
-  return typeof arg === 'string';
-}
-exports.isString = isString;
-
-function isSymbol(arg) {
-  return typeof arg === 'symbol';
-}
-exports.isSymbol = isSymbol;
-
-function isUndefined(arg) {
-  return arg === void 0;
-}
-exports.isUndefined = isUndefined;
-
-function isRegExp(re) {
-  return isObject(re) && objectToString(re) === '[object RegExp]';
-}
-exports.isRegExp = isRegExp;
-
-function isObject(arg) {
-  return typeof arg === 'object' && arg !== null;
-}
-exports.isObject = isObject;
-
-function isDate(d) {
-  return isObject(d) && objectToString(d) === '[object Date]';
-}
-exports.isDate = isDate;
-
-function isError(e) {
-  return isObject(e) &&
-      (objectToString(e) === '[object Error]' || e instanceof Error);
-}
-exports.isError = isError;
-
-function isFunction(arg) {
-  return typeof arg === 'function';
-}
-exports.isFunction = isFunction;
-
-function isPrimitive(arg) {
-  return arg === null ||
-         typeof arg === 'boolean' ||
-         typeof arg === 'number' ||
-         typeof arg === 'string' ||
-         typeof arg === 'symbol' ||  // ES6 symbol
-         typeof arg === 'undefined';
-}
-exports.isPrimitive = isPrimitive;
-
-exports.isBuffer = require('./support/isBuffer');
-
-function objectToString(o) {
-  return Object.prototype.toString.call(o);
-}
-
-
-function pad(n) {
-  return n < 10 ? '0' + n.toString(10) : n.toString(10);
-}
-
-
-var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep',
-              'Oct', 'Nov', 'Dec'];
-
-// 26 Feb 16:19:34
-function timestamp() {
-  var d = new Date();
-  var time = [pad(d.getHours()),
-              pad(d.getMinutes()),
-              pad(d.getSeconds())].join(':');
-  return [d.getDate(), months[d.getMonth()], time].join(' ');
-}
-
-
-// log is just a thin wrapper to console.log that prepends a timestamp
-exports.log = function() {
-  console.log('%s - %s', timestamp(), exports.format.apply(exports, arguments));
-};
-
-
-/**
- * Inherit the prototype methods from one constructor into another.
- *
- * The Function.prototype.inherits from lang.js rewritten as a standalone
- * function (not on Function.prototype). NOTE: If this file is to be loaded
- * during bootstrapping this function needs to be rewritten using some native
- * functions as prototype setup using normal JavaScript does not work as
- * expected during bootstrapping (see mirror.js in r114903).
- *
- * @param {function} ctor Constructor function which needs to inherit the
- *     prototype.
- * @param {function} superCtor Constructor function to inherit prototype from.
- */
-exports.inherits = require('inherits');
-
-exports._extend = function(origin, add) {
-  // Don't do anything if add isn't an object
-  if (!add || !isObject(add)) return origin;
-
-  var keys = Object.keys(add);
-  var i = keys.length;
-  while (i--) {
-    origin[keys[i]] = add[keys[i]];
-  }
-  return origin;
-};
-
-function hasOwnProperty(obj, prop) {
-  return Object.prototype.hasOwnProperty.call(obj, prop);
-}
-
-}).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./support/isBuffer":75,"_process":73,"inherits":74}]},{},[2]);
+},{}]},{},[8]);
