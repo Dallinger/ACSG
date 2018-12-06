@@ -148,7 +148,7 @@ acsg.Browser = (function () {
     }
   }
 
-  Browser.prototype.updateData = function () {
+  Browser.prototype.updateView = function () {
     this.pixels.update(this.data)
   }
 
@@ -169,58 +169,58 @@ acsg.Browser = (function () {
 }())
 
 
-acsg.FakeBrowser = (function () {
+acsg.CLI = (function () {
 
-  var FakeBrowser = function (opts) {
-      if (!(this instanceof FakeBrowser)) {
-          return new FakeBrowser(opts);
+  var CLI = function (opts) {
+      if (!(this instanceof CLI)) {
+          return new CLI(opts);
       }
 
       this.opts = opts
       this._performance = require('perf_hooks')
   }
 
-  FakeBrowser.prototype.now = function () {
+  CLI.prototype.now = function () {
     return this._performance.performance.now()
   }
 
-  FakeBrowser.prototype.updateScoreboard = function (score) {
+  CLI.prototype.updateScoreboard = function (score) {
     // Noop
   }
 
-  FakeBrowser.prototype.updateClock = function (t) {
+  CLI.prototype.updateClock = function (t) {
     // Noop
   }
 
-  FakeBrowser.prototype.draw = function (position, color) {
+  CLI.prototype.draw = function (position, color) {
     // Noop
   }
 
-  FakeBrowser.prototype.eventStream = function (callback) {
+  CLI.prototype.eventStream = function (callback) {
     var afterGameOver = (this.now() + this.opts.DURATION + 1) * 1000
     callback(afterGameOver)
   }
 
-  FakeBrowser.prototype.updateBackground = function () {
+  CLI.prototype.updateBackground = function () {
     // Noop
   }
 
-  FakeBrowser.prototype.updateMask = function (ego) {
+  CLI.prototype.updateMask = function (ego) {
     // Noop
   }
 
-  FakeBrowser.prototype.updateData = function () {
+  CLI.prototype.updateView = function () {
     // Noop
   }
 
-  FakeBrowser.prototype.exportFile = function (data, filename) {
+  CLI.prototype.exportFile = function (data, filename) {
     var content = JSON.stringify(data)
     fs.writeFileSync('data/' + filename, content, function (err) {
       if (err) throw err;
     });
   }
 
-  return FakeBrowser
+  return CLI
 }())
 
 
@@ -233,7 +233,6 @@ acsg.World = (function () {
 
       this.rows = settings.ROWS
       this.columns = settings.COLUMNS
-      this.browser = settings.browser
       this.botStrategy = settings.BOT_STRATEGY
       this.food = []
       this.players = []
@@ -527,9 +526,9 @@ acsg.Game = (function () {
       this.actionTimestamps = []
     }
     if (this.opts.IS_CLI) {
-      this.browser = acsg.FakeBrowser(this.opts)
+      this.ui = acsg.CLI(this.opts)
     } else {
-      this.browser = acsg.Browser(this.opts)
+      this.ui = acsg.Browser(this.opts)
     }
 
     if (this.opts.INCLUDE_HUMAN) {
@@ -537,7 +536,7 @@ acsg.Game = (function () {
     } else {
       this.numBots = this.opts.NUM_PLAYERS
     }
-    this.opts.SEED = this.opts.SEED || this.browser.now()
+    this.opts.SEED = this.opts.SEED || this.ui.now()
 
     // Seed event RNG.
     Math.seedrandom(this.opts.SEED)
@@ -611,7 +610,7 @@ acsg.Game = (function () {
 
   Game.prototype.run = function (callback) {
     callback = callback || function () { console.log('Game finished.') }
-    start = this.browser.now()
+    start = this.ui.now()
 
     this.world.recordState(0)
 
@@ -642,7 +641,7 @@ acsg.Game = (function () {
     completed = false
     self = this
     players = self.world.players
-    this.browser.eventStream(function (now) {
+    this.ui.eventStream(function (now) {
       elapsedTime = (now - start) / 1000
 
       // If original game w/ human player, register any human moves
@@ -675,25 +674,25 @@ acsg.Game = (function () {
           lastHumanActionIdx += 1
           players[0].move(self.actions[lastHumanActionIdx])
           score = players[0].consume()
-          self.browser.updateScoreboard(score)
+          self.ui.updateScoreboard(score)
           self.world.recordState(nextHumanT)
         }
       }
 
-      self.browser.updateBackground()
+      self.ui.updateBackground()
 
       // Draw the players and food
       self.world.players.forEach(function (p) {
-        self.browser.draw(p.position, p.color)
+        self.ui.draw(p.position, p.color)
       })
       self.world.food.forEach(function (f) {
-        self.browser.draw(f.position, f.color)
+        self.ui.draw(f.position, f.color)
       })
 
       // Update the UI
-      self.browser.updateClock(self.opts.DURATION - elapsedTime)
-      self.browser.updateMask(ego)
-      self.browser.updateData()
+      self.ui.updateClock(self.opts.DURATION - elapsedTime)
+      self.ui.updateMask(ego)
+      self.ui.updateView()
 
       if (lastBotActionIdx >= whichBotMoves.length - 1) {
         if (!self.gameOver) {
@@ -709,7 +708,7 @@ acsg.Game = (function () {
     var data = this.serializeFullState(),
         filename = filenameFrom(data)
 
-    self.browser.exportFile(data, filename)
+    self.ui.exportFile(data, filename)
     return filename
   }
 
