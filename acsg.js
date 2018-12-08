@@ -47,10 +47,11 @@ var acsg = {}  // Module namespace
 
 acsg.Browser = (function () {
 
-  var Browser = function (opts) {
+  var Browser = function (game, opts) {
       if (!(this instanceof Browser)) {
-          return new Browser(opts);
+          return new Browser(game, opts);
       }
+      this.game = game
       // Seed background animation RNG.
       var backgroundRngFunc = seedrandom(this.now())
       this.rBackground = new Rands(backgroundRngFunc)
@@ -76,6 +77,10 @@ acsg.Browser = (function () {
         background: GRAY,
         formatted: true
       })
+
+      if (this.opts.INCLUDE_HUMAN) {
+        this._bindKeys()
+      }
   }
 
   Browser.prototype.now = function () {
@@ -118,23 +123,13 @@ acsg.Browser = (function () {
     }
   }
 
-  Browser.prototype.updateBackground = function () {
-    for (var i = 0; i < this.data.length; i++) {
-      rand = this.rBackground.uniform() * 0.02
-      this.background[i] = [
-        this.background[i][0] * 0.95 + rand,
-        this.background[i][1] * 0.95 + rand,
-        this.background[i][2] * 0.95 + rand
-      ]
-    }
-    this.data = this.background
-  }
-
   Browser.prototype.updateMask = function (ego) {
     var g = gaussian(0, Math.pow(this.opts.VISIBILITY, 2))
-    rescaling = 1 / g.pdf(0)
-    x = ego.position[0]
-    y = ego.position[1]
+    var rescaling = 1 / g.pdf(0)
+    var x = ego.position[0]
+    var y = ego.position[1]
+    var dimness, idx
+
     for (var i = 0; i < this.opts.COLUMNS; i++) {
       for (var j = 0; j < this.opts.ROWS; j++) {
         dimness = g.pdf(distance(x, y, i, j)) * rescaling
@@ -148,7 +143,9 @@ acsg.Browser = (function () {
     }
   }
 
-  Browser.prototype.updateView = function () {
+  Browser.prototype.updateGrid = function (world) {
+    this._updateBackground()
+    world.drawTo(this)
     this.pixels.update(this.data)
   }
 
@@ -163,6 +160,38 @@ acsg.Browser = (function () {
       el.textContent = 'Download'
       document.body.appendChild(el)
       el.click()
+  }
+
+  Browser.prototype._updateBackground = function () {
+    for (var i = 0; i < this.data.length; i++) {
+      rand = this.rBackground.uniform() * 0.02
+      this.background[i] = [
+        this.background[i][0] * 0.95 + rand,
+        this.background[i][1] * 0.95 + rand,
+        this.background[i][2] * 0.95 + rand
+      ]
+    }
+    this.data = this.background
+  }
+
+  Browser.prototype._bindKeys = function () {
+    var self = this
+    var directions = ['up', 'down', 'left', 'right']
+    var lock = false
+
+    directions.forEach(function (direction) {
+      Mousetrap.bind(direction, function () {
+        if (!lock) {
+          self.game.playerMoved(direction)
+        }
+        lock = true
+        return false
+      })
+      Mousetrap.bind(direction, function () {
+        lock = false
+        return false
+      }, 'keyup')
+    })
   }
 
   return Browser
@@ -184,7 +213,7 @@ acsg.CLI = (function () {
     return this._performance.performance.now()
   }
 
-  CLI.prototype.updateScoreboard = function (score) {
+  CLI.prototype.draw = function (position, color) {
     // Noop
   }
 
@@ -192,16 +221,7 @@ acsg.CLI = (function () {
     // Noop
   }
 
-  CLI.prototype.draw = function (position, color) {
-    // Noop
-  }
-
-  CLI.prototype.eventStream = function (callback) {
-    var afterGameOver = (this.now() + this.opts.DURATION + 1) * 1000
-    callback(afterGameOver)
-  }
-
-  CLI.prototype.updateBackground = function () {
+  CLI.prototype.updateGrid = function (world, elapsedTime) {
     // Noop
   }
 
@@ -209,8 +229,13 @@ acsg.CLI = (function () {
     // Noop
   }
 
-  CLI.prototype.updateView = function () {
+  CLI.prototype.updateScoreboard = function (score) {
     // Noop
+  }
+
+  CLI.prototype.eventStream = function (callback) {
+    var afterGameOver = (this.now() + this.opts.DURATION + 1) * 1000
+    callback(afterGameOver)
   }
 
   CLI.prototype.exportFile = function (data, filename) {
@@ -238,6 +263,18 @@ acsg.World = (function () {
       this.players = []
       this.states = []
   };
+
+  World.prototype.drawTo = function (ui) {
+    // Draw the players and food
+    this.players.forEach(function (p) {
+      ui.draw(p.position, p.color)
+    })
+    this.food.forEach(function (f) {
+      ui.draw(f.position, f.color)
+    })
+
+    ui.updateMask(this.ego())
+  }
 
   World.prototype.randomPosition = function () {
     empty = false
@@ -291,7 +328,7 @@ acsg.World = (function () {
     return this.players[0]
   }
 
-  World.prototype.recordState = function (timestamp) {
+  World.prototype.recordStateAt = function (timestamp) {
     this.states.push(this.state(timestamp))
   }
 
@@ -501,8 +538,8 @@ acsg.Game = (function () {
     // Check if this is a new game or a replay.
     if (g.id) {          // A replay.
       this.UUID = g.id
-      this.actions = g.data.actions
-      this.actionTimestamps = g.data.timestamps
+      this.humanActions = g.data.actions
+      this.humanActionTimestamps = g.data.timestamps
       this.opts = g.config
       this.replay = true
       this.opts.REAL_TIME = g.config.REAL_TIME || false
@@ -522,13 +559,13 @@ acsg.Game = (function () {
       this.opts.BOT_STRATEGY = opts.BOT_STRATEGY || 'random'
       this.UUID = uuidv4()
       this.replay = false
-      this.actions = []
-      this.actionTimestamps = []
+      this.humanActions = []
+      this.humanActionTimestamps = []
     }
     if (this.opts.IS_CLI) {
       this.ui = acsg.CLI(this.opts)
     } else {
-      this.ui = acsg.Browser(this.opts)
+      this.ui = acsg.Browser(this, this.opts)
     }
 
     if (this.opts.INCLUDE_HUMAN) {
@@ -555,41 +592,23 @@ acsg.Game = (function () {
       this.world.spawnBot()
     }
 
-    ego = this.world.ego()
-
     for (var i = 0; i < this.opts.NUM_FOOD; i++) {
       this.world.spawnFood()
     }
+  }
 
-    //
-    // Key bindings
-    //
-    if (this.opts.INCLUDE_HUMAN && !this.opts.IS_CLI) {
-      directions = ['up', 'down', 'left', 'right']
-      lock = false
-      directions.forEach(function (direction) {
-        Mousetrap.bind(direction, function () {
-          if (!lock && !self.gameOver) {
-            self.actions.push(direction)
-          }
-          lock = true
-          return false
-        })
-        Mousetrap.bind(direction, function () {
-          lock = false
-          return false
-        }, 'keyup')
-      })
+  Game.prototype.playerMoved = function (direction) {
+    if (!this.gameOver) {
+      this.humanActions.push(direction)
     }
-
   }
 
   Game.prototype.serializeActions = function () {
     return JSON.stringify({
       'id': this.UUID,
       'data': {
-        'actions': this.actions,
-        'timestamps': this.actionTimestamps
+        'actions': this.humanActions,
+        'timestamps': this.humanActionTimestamps
       },
       'config': opts
     })
@@ -599,8 +618,8 @@ acsg.Game = (function () {
     var data = {
       'id': this.UUID,
       'data': {
-        'actions': this.actions,
-        'timestamps': this.actionTimestamps
+        'actions': this.humanActions,
+        'timestamps': this.humanActionTimestamps
       },
       'config': this.opts,
     }
@@ -608,55 +627,64 @@ acsg.Game = (function () {
     return data
   }
 
-  Game.prototype.run = function (callback) {
-    callback = callback || function () { console.log('Game finished.') }
-    start = this.ui.now()
-
-    this.world.recordState(0)
-
+  Game.prototype.pregenerateBotMotion = function () {
     // Pregenerate bot motion timings, sans direction. Since the timing and
     // direction of all bot movement is deterministic based on the seed
     // to the random number generator, we can pregenerate a sequence of
     // time+bot pairs to execute later.
-    botActionTimestamps = []
-    botActions = []
-    whichBotMoves = []
-    t = 0
-    humanOffset = this.opts.INCLUDE_HUMAN ? 1 : 0
+    var motion = {timestamps: [], botIds: []}
+        ,humanOffset = this.opts.INCLUDE_HUMAN ? 1 : 0
+        ,t = 0
+        ,waitTime
+        ,idx
+
     while (true) {
       waitTime = this.eventRandomizer.exponential(this.opts.BOT_MOTION_RATE * this.numBots)
       if (t + waitTime > this.opts.DURATION) {
         break
       }
       t += waitTime
-      botActionTimestamps.push(t)
+      motion.timestamps.push(t)
       idx = Math.floor(Math.random() * this.numBots) + humanOffset
-      whichBotMoves.push(idx)
+      motion.botIds.push(idx)
     }
-    lastBotActionIdx = -1
-    lastHumanActionIdx = -1
-    lastBotActionTimestamp = 0
-    lastHumanActionTimestamp = 0
+    return motion
+  }
 
-    completed = false
-    self = this
-    players = self.world.players
+  Game.prototype.unbufferHumanMoves = function (timestamp) {
+    // If original game w/ human player, register any human moves
+    // added to the actions list with the current tick's timestamp
+    // so they can be processed on the next update.
+    var newActionCount
+
+    if (this.opts.INCLUDE_HUMAN && !this.replay) {
+      newActionCount = this.humanActions.length - this.humanActionTimestamps.length
+      for (var i = 0; i < newActionCount; i++) {
+        this.humanActionTimestamps.push(timestamp)
+      }
+    }
+  }
+
+  Game.prototype.run = function (callback) {
+    var self = this
+    var callback = callback || function () { console.log('Game finished.') }
+    var start = this.ui.now()
+    var botActions = []
+    var lastBotActionIdx = -1
+    var lastHumanActionIdx = -1
+    var players = self.world.players
+    var ego = self.world.ego()
+    var botMotion = this.pregenerateBotMotion()
+
+    this.world.recordStateAt(0)
     this.ui.eventStream(function (now) {
       elapsedTime = (now - start) / 1000
-
-      // If original game w/ human player, register any human moves
-      // added to the actions list with the current tick's timestamp
-      if (self.opts.INCLUDE_HUMAN && !self.replay) {
-        numActionsToDo = self.actions.length - self.actionTimestamps.length
-        for (var i = 0; i < numActionsToDo; i++) {
-          self.actionTimestamps.push(elapsedTime)
-        }
-      }
+      self.unbufferHumanMoves(elapsedTime)
 
       // Execute all unexecuted actions up to elapsedTime.
       while (true) {
-        nextBotT = botActionTimestamps[lastBotActionIdx + 1] || Infinity
-        nextHumanT = self.actionTimestamps[lastHumanActionIdx + 1] || Infinity
+        nextBotT = botMotion.timestamps[lastBotActionIdx + 1] || Infinity
+        nextHumanT = self.humanActionTimestamps[lastHumanActionIdx + 1] || Infinity
 
         if (nextBotT > elapsedTime && nextHumanT > elapsedTime) {
           break
@@ -665,36 +693,23 @@ acsg.Game = (function () {
         if (nextBotT <= nextHumanT) {  // Break ties in favor of bots.
           // Carry out bot action.
           lastBotActionIdx += 1
-          currentBot = players[whichBotMoves[lastBotActionIdx]]
+          currentBot = players[botMotion.botIds[lastBotActionIdx]]
           botActions.push(currentBot.move())
           currentBot.consume()
-          self.world.recordState(nextBotT)
+          self.world.recordStateAt(nextBotT)
         } else {
           // Carry out human action.
           lastHumanActionIdx += 1
-          players[0].move(self.actions[lastHumanActionIdx])
-          score = players[0].consume()
-          self.ui.updateScoreboard(score)
-          self.world.recordState(nextHumanT)
+          ego.move(self.humanActions[lastHumanActionIdx])
+          self.ui.updateScoreboard(ego.consume())
+          self.world.recordStateAt(nextHumanT)
         }
       }
 
-      self.ui.updateBackground()
-
-      // Draw the players and food
-      self.world.players.forEach(function (p) {
-        self.ui.draw(p.position, p.color)
-      })
-      self.world.food.forEach(function (f) {
-        self.ui.draw(f.position, f.color)
-      })
-
-      // Update the UI
+      self.ui.updateGrid(self.world)
       self.ui.updateClock(self.opts.DURATION - elapsedTime)
-      self.ui.updateMask(ego)
-      self.ui.updateView()
 
-      if (lastBotActionIdx >= whichBotMoves.length - 1) {
+      if (lastBotActionIdx >= botMotion.botIds.length - 1) {
         if (!self.gameOver) {
           self.gameOver = true
           callback()
@@ -708,7 +723,7 @@ acsg.Game = (function () {
     var data = this.serializeFullState(),
         filename = filenameFrom(data)
 
-    self.ui.exportFile(data, filename)
+    this.ui.exportFile(data, filename)
     return filename
   }
 
