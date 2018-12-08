@@ -1,6 +1,6 @@
 var util = require('util')
 var css = require('dom-css')
-var fs = require('fs');
+var fs = require('fs')
 var grid = require('./pixels')
 var parse = require('parse-color')
 var position = require('mouse-position')
@@ -35,7 +35,7 @@ function extend(obj, src) {
   for (var key in src) {
     if (src.hasOwnProperty(key)) obj[key] = src[key];
   }
-  return obj;
+  return obj
 }
 
 function filenameFrom(data) {
@@ -49,7 +49,7 @@ acsg.Browser = (function () {
 
   var Browser = function (game, opts) {
       if (!(this instanceof Browser)) {
-          return new Browser(game, opts);
+          return new Browser(game, opts)
       }
       this.game = game
       // Seed background animation RNG.
@@ -202,7 +202,7 @@ acsg.CLI = (function () {
 
   var CLI = function (opts) {
       if (!(this instanceof CLI)) {
-          return new CLI(opts);
+          return new CLI(opts)
       }
 
       this.opts = opts
@@ -241,8 +241,8 @@ acsg.CLI = (function () {
   CLI.prototype.exportFile = function (data, filename) {
     var content = JSON.stringify(data)
     fs.writeFileSync('data/' + filename, content, function (err) {
-      if (err) throw err;
-    });
+      if (err) throw err
+    })
   }
 
   return CLI
@@ -262,7 +262,7 @@ acsg.World = (function () {
       this.food = []
       this.players = []
       this.states = []
-  };
+  }
 
   World.prototype.drawTo = function (ui) {
     // Draw the players and food
@@ -286,7 +286,7 @@ acsg.World = (function () {
       empty = this.isEmpty(position)
     }
     return position
-  };
+  }
 
   World.prototype.hasPlayer = function (position) {
     var numPlayers = this.players.length
@@ -362,8 +362,8 @@ acsg.World = (function () {
     }
   }
 
-  return World;
-}());
+  return World
+}())
 
 acsg.State = (function () {
   State = function (config) {
@@ -507,7 +507,7 @@ acsg.Bot = (function () {
   }
 
   return Bot
-}());
+}())
 
 acsg.Food = (function () {
   var Food = function (config) {
