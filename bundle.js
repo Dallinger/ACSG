@@ -222,7 +222,7 @@ acsg.CLI = (function () {
     // Noop
   }
 
-  CLI.prototype.updateGrid = function (world, elapsedTime) {
+  CLI.prototype.updateGrid = function (world) {
     // Noop
   }
 
