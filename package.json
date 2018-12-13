@@ -4,8 +4,8 @@
   "description": "Run an adversarial collective-sensing game",
   "main": "acsg.js",
   "scripts": {
-    "test": "standard && tape test.js | tap-spec",
-    "start": "budo example.js",
+    "test": "jest",
+    "start": "budo demo.js",
     "bundle": "browserify demo.js -o bundle.js",
     "deploy": "npm run bundle && surge demo pixel-grid.surge.sh"
   },
@@ -41,8 +41,15 @@
     "watchify": "^3.11.0"
   },
   "devDependencies": {
+    "budo": "^11.5.0",
+    "jest": "^23.6.0",
+    "rewire": "^4.0.1",
     "standard": "^7.1.2",
     "tap-spec": "^4.1.1",
     "tape": "^4.6.0"
+  },
+  "jest": {
+    "coverageDirectory": "./coverage/",
+    "collectCoverage": true
   }
 }

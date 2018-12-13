@@ -1,3 +1,6 @@
+/* jshint esversion: 6, asi: true */
+/* globals require */
+
 var util = require('util')
 var css = require('dom-css')
 var fs = require('fs')
@@ -43,6 +46,20 @@ function filenameFrom(data) {
   return experimentID + '-decompressed.json'
 }
 
+function sum(vector) {
+  return vector.reduce(( accumulator, currentValue ) => accumulator + currentValue, 0);
+}
+
+function softmax(vector, temperature=1){
+  /* The softmax activation function. */
+  var new_vector = vector.map(x => Math.pow(x, temperature));
+  if (sum(new_vector)) {
+      return new_vector.map(x => x / sum(new_vector));
+  } else {
+      return new_vector.map(_ => vector.length);
+  }
+}
+
 var acsg = {}  // Module namespace
 
 acsg.Browser = (function () {
@@ -56,6 +73,7 @@ acsg.Browser = (function () {
       var backgroundRngFunc = seedrandom(this.now())
       this.rBackground = new Rands(backgroundRngFunc)
       this.scoreboard = document.getElementById('score')
+      this.bonus = document.getElementById('dollars')
       this.clock = document.getElementById('clock')
       this.data = []
       this.background = []
@@ -87,8 +105,9 @@ acsg.Browser = (function () {
     return performance.now()
   }
 
-  Browser.prototype.updateScoreboard = function (score) {
-    this.scoreboard.innerHTML = score
+  Browser.prototype.updateScoreboard = function (ego) {
+    this.scoreboard.innerHTML = ego.score
+    this.bonus.innerHTML = ego.payoff.toFixed(2)
   }
 
   Browser.prototype.updateClock = function (t) {
@@ -229,7 +248,7 @@ acsg.CLI = (function () {
     // Noop
   }
 
-  CLI.prototype.updateScoreboard = function (score) {
+  CLI.prototype.updateScoreboard = function (ego) {
     // Noop
   }
 
@@ -409,6 +428,7 @@ acsg.Player = (function () {
     this.teamIdx = Math.floor(Math.random() * teamColors.length)
     this.color = config.color || teamColors[this.teamIdx]
     this.score = config.score || 0
+    this.payoff = 0
 
     return this
   }
@@ -557,6 +577,9 @@ acsg.Game = (function () {
       this.opts.BLOCK_SIZE = opts.BLOCK_SIZE || 15
       this.opts.BLOCK_PADDING = opts.BLOCK_PADDING || 1
       this.opts.BOT_STRATEGY = opts.BOT_STRATEGY || 'random'
+      this.opts.INTERGROUP_COMPETITION = opts.INTERGROUP_COMPETITION || 1
+      this.opts.INTRAGROUP_COMPETITION = opts.INTRAGROUP_COMPETITION || 1
+      this.opts.DOLLARS_PER_POINT = opts.DOLLARS_PER_POINT || 0.02
       this.UUID = uuidv4()
       this.replay = false
       this.humanActions = []
@@ -604,14 +627,19 @@ acsg.Game = (function () {
   }
 
   Game.prototype.serializeActions = function () {
-    return JSON.stringify({
+    var data = {
       'id': this.UUID,
       'data': {
         'actions': this.humanActions,
         'timestamps': this.humanActionTimestamps
       },
       'config': opts
-    })
+    }
+    if (this.opts.INCLUDE_HUMAN && this.world.players && this.world.players[0]) {
+      data.data.score = this.world.players[0].score
+      data.data.payoff = this.world.players[0].payoff.toFixed(2)
+    }
+    return JSON.stringify(data)
   }
 
   Game.prototype.serializeFullState = function () {
@@ -665,6 +693,58 @@ acsg.Game = (function () {
     }
   }
 
+  Game.prototype.computePayoffs = function () {
+    /* Compute payoffs from scores.
+
+    A player's payoff in the game can be expressed as the product of four
+    factors: the grand total number of points earned by all players, the
+    (softmax) proportion of the total points earned by the player's group,
+    the (softmax) proportion of the group's points earned by the player,
+    and the number of dollars per point.
+
+    Softmaxing the two proportions implements intragroup and intergroup
+    competition. When the parameters are 1, payoff is proportional to what
+    was scored and so there is no extrinsic competition. Increasing the
+    temperature introduces competition. For example, at 2, a pair of groups
+    that score in a 2:1 ratio will get payoff in a 4:1 ratio, and therefore
+    it pays to be in the highest-scoring group. The same logic applies to
+    intragroup competition: when the temperature is 2, a pair of players
+    within a group that score in a 2:1 ratio will get payoff in a 4:1
+    ratio, and therefore it pays to be a group's highest-scoring member. */
+    var group_info, group_scores, ingroup_players,
+        ingroup_scores, intra_proportions, inter_proportions,
+        p, i;
+    var player_groups = {}
+    var total_payoff = 0
+    var player = this.world.players[0]
+
+    for (i = 0; i < this.world.players.length; i++) {
+      p = this.world.players[i]
+      group_info = player_groups[p.teamIdx]
+      if (group_info === undefined) {
+        player_groups[p.teamIdx] = group_info = {players: [], scores: [], total: 0}
+      }
+      group_info.players.push(p)
+      group_info.scores.push(p.score)
+      group_info.total += p.score
+      total_payoff += p.score
+    }
+    group_scores = Object.values(player_groups).map(g => g.total);
+    group_info = player_groups[player.teamIdx];
+    ingroup_players = group_info.players
+    ingroup_scores = group_info.scores
+    intra_proportions = softmax(
+      ingroup_scores, this.opts.INTRAGROUP_COMPETITION
+    );
+    player.payoff = total_payoff * intra_proportions[0]
+
+    inter_proportions = softmax(
+        group_scores, this.opts.INTERGROUP_COMPETITION
+    );
+    player.payoff *= inter_proportions[player.teamIdx]
+    player.payoff *= this.opts.DOLLARS_PER_POINT
+  }
+
   Game.prototype.run = function (callback) {
     var self = this
     var callback = callback || function () { console.log('Game finished.') }
@@ -701,14 +781,17 @@ acsg.Game = (function () {
           // Carry out human action.
           lastHumanActionIdx += 1
           ego.move(self.humanActions[lastHumanActionIdx])
-          self.ui.updateScoreboard(ego.consume())
+          ego.consume()
+          self.ui.updateScoreboard(ego)
           self.world.recordStateAt(nextHumanT)
         }
+        self.computePayoffs()
       }
 
       self.ui.updateGrid(self.world)
       self.ui.updateClock(self.opts.DURATION - elapsedTime)
 
+      self.computePayoffs()
       if (lastBotActionIdx >= botMotion.botIds.length - 1) {
         if (!self.gameOver) {
           self.gameOver = true
