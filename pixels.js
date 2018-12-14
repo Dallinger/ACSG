@@ -1,3 +1,5 @@
+/* eslint-env node */
+
 var parse = require('parse-color')
 var isnumber = require('is-number')
 var isstring = require('is-string')

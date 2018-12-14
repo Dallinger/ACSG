@@ -1,3 +1,6 @@
+/* eslint no-console: off */
+/* global require */
+
 var acsg = require('./acsg')
 
 var game = acsg.Game({ 'config': {

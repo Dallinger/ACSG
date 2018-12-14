@@ -1,5 +1,5 @@
+/* eslint no-console: off */
 /* eslint-env node,browser */
-/* globals require */
 
 var fs = require('fs')
 var grid = require('./pixels')
@@ -33,7 +33,7 @@ function distance (x, y, xx, yy) {
 
 function extend(obj, src) {
   for (var key in src) {
-    if (src.hasOwnProperty(key)) obj[key] = src[key];
+    if (src.hasOwnProperty(key)) obj[key] = src[key]
   }
   return obj
 }
@@ -44,16 +44,16 @@ function filenameFrom(data) {
 }
 
 function sum(vector) {
-  return vector.reduce(( accumulator, currentValue ) => accumulator + currentValue, 0);
+  return vector.reduce(( accumulator, currentValue ) => accumulator + currentValue, 0)
 }
 
 function softmax(vector, temperature=1){
   /* The softmax activation function. */
-  var new_vector = vector.map(x => Math.pow(x, temperature));
+  var new_vector = vector.map(x => Math.pow(x, temperature))
   if (sum(new_vector)) {
-      return new_vector.map(x => x / sum(new_vector));
+    return new_vector.map(x => x / sum(new_vector))
   } else {
-      return new_vector.map(_ => vector.length);
+    return new_vector.map(function () {return vector.length})
   }
 }
 
@@ -62,40 +62,40 @@ var acsg = {}  // Module namespace
 acsg.Browser = (function () {
 
   var Browser = function (game, opts) {
-      if (!(this instanceof Browser)) {
-          return new Browser(game, opts)
-      }
-      this.game = game
-      // Seed background animation RNG.
-      var backgroundRngFunc = seedrandom(this.now())
-      this.rBackground = new Rands(backgroundRngFunc)
-      this.scoreboard = document.getElementById('score')
-      this.bonus = document.getElementById('dollars')
-      this.clock = document.getElementById('clock')
-      this.data = []
-      this.background = []
-      this.opts = opts
+    if (!(this instanceof Browser)) {
+      return new Browser(game, opts)
+    }
+    this.game = game
+    // Seed background animation RNG.
+    var backgroundRngFunc = seedrandom(this.now())
+    this.rBackground = new Rands(backgroundRngFunc)
+    this.scoreboard = document.getElementById('score')
+    this.bonus = document.getElementById('dollars')
+    this.clock = document.getElementById('clock')
+    this.data = []
+    this.background = []
+    this.opts = opts
 
-      for (var i = 0; i < opts.ROWS; i++) {
-        for (var j = 0; j < opts.COLUMNS; j++) {
-          this.data.push(BLACK)
-          this.background.push(BLACK)
-        }
+    for (var i = 0; i < opts.ROWS; i++) {
+      for (var j = 0; j < opts.COLUMNS; j++) {
+        this.data.push(BLACK)
+        this.background.push(BLACK)
       }
+    }
 
-      this.pixels = grid(this.data, {
-        root: document.body,
-        rows: opts.ROWS,
-        columns: opts.COLUMNS,
-        size: opts.BLOCK_SIZE,
-        padding: opts.BLOCK_PADDING,
-        background: GRAY,
-        formatted: true
-      })
+    this.pixels = grid(this.data, {
+      root: document.body,
+      rows: opts.ROWS,
+      columns: opts.COLUMNS,
+      size: opts.BLOCK_SIZE,
+      padding: opts.BLOCK_PADDING,
+      background: GRAY,
+      formatted: true
+    })
 
-      if (this.opts.INCLUDE_HUMAN) {
-        this._bindKeys()
-      }
+    if (this.opts.INCLUDE_HUMAN) {
+      this._bindKeys()
+    }
   }
 
   Browser.prototype.now = function () {
@@ -103,12 +103,12 @@ acsg.Browser = (function () {
   }
 
   Browser.prototype.updateScoreboard = function (ego) {
-    this.scoreboard.innerHTML = ego.score
-    this.bonus.innerHTML = ego.payoff.toFixed(2)
+    if (this.scoreboard !== null) {this.scoreboard.innerHTML = ego.score}
+    if (this.bonus !== null) {this.bonus.innerHTML = ego.payoff.toFixed(2)}
   }
 
   Browser.prototype.updateClock = function (t) {
-    this.clock.innerHTML = ((t > 0) ? t.toFixed(1) : '0.0')
+    if (this.clock !== null) {this.clock.innerHTML = ((t > 0) ? t.toFixed(1) : '0.0')}
   }
 
   Browser.prototype.draw = function (position, color) {
@@ -166,16 +166,16 @@ acsg.Browser = (function () {
   }
 
   Browser.prototype.exportFile = function (data, filename) {
-      var blob = new Blob([JSON.stringify(data)], {type: 'application/json'})
-      var url = URL.createObjectURL(blob)
-      var el = document.createElement('a')
-      el.style.display = 'none'
-      el.id = 'downloadAnchorElem'
-      el.href = url
-      el.download = filename
-      el.textContent = 'Download'
-      document.body.appendChild(el)
-      el.click()
+    var blob = new Blob([JSON.stringify(data)], {type: 'application/json'})
+    var url = URL.createObjectURL(blob)
+    var el = document.createElement('a')
+    el.style.display = 'none'
+    el.id = 'downloadAnchorElem'
+    el.href = url
+    el.download = filename
+    el.textContent = 'Download'
+    document.body.appendChild(el)
+    el.click()
   }
 
   Browser.prototype._updateBackground = function () {
@@ -218,35 +218,35 @@ acsg.Browser = (function () {
 acsg.CLI = (function () {
 
   var CLI = function (opts) {
-      if (!(this instanceof CLI)) {
-          return new CLI(opts)
-      }
+    if (!(this instanceof CLI)) {
+      return new CLI(opts)
+    }
 
-      this.opts = opts
-      this._performance = require('perf_hooks')
+    this.opts = opts
+    this._performance = require('perf_hooks')
   }
 
   CLI.prototype.now = function () {
     return this._performance.performance.now()
   }
 
-  CLI.prototype.draw = function (position, color) {
+  CLI.prototype.draw = function () {
     // Noop
   }
 
-  CLI.prototype.updateClock = function (t) {
+  CLI.prototype.updateClock = function () {
     // Noop
   }
 
-  CLI.prototype.updateGrid = function (world) {
+  CLI.prototype.updateGrid = function () {
     // Noop
   }
 
-  CLI.prototype.updateMask = function (ego) {
+  CLI.prototype.updateMask = function () {
     // Noop
   }
 
-  CLI.prototype.updateScoreboard = function (ego) {
+  CLI.prototype.updateScoreboard = function () {
     // Noop
   }
 
@@ -269,16 +269,16 @@ acsg.CLI = (function () {
 acsg.World = (function () {
 
   var World = function (settings) {
-      if (!(this instanceof World)) {
-          return new World(settings)
-      }
+    if (!(this instanceof World)) {
+      return new World(settings)
+    }
 
-      this.rows = settings.ROWS
-      this.columns = settings.COLUMNS
-      this.botStrategy = settings.BOT_STRATEGY
-      this.food = []
-      this.players = []
-      this.states = []
+    this.rows = settings.ROWS
+    this.columns = settings.COLUMNS
+    this.botStrategy = settings.BOT_STRATEGY
+    this.food = []
+    this.players = []
+    this.states = []
   }
 
   World.prototype.drawTo = function (ui) {
@@ -360,9 +360,9 @@ acsg.World = (function () {
 
   World.prototype.serialize = function () {
     var players = []
-        ,food = []
-        ,states = []
-        ,i
+      ,food = []
+      ,states = []
+      ,i
 
     for(i = 0; i < this.players.length; i++) {
       players.push(this.players[i].serialize())
@@ -396,8 +396,8 @@ acsg.State = (function () {
 
   State.prototype.serialize = function () {
     var players = []
-        ,food = []
-        ,i
+      ,food = []
+      ,i
 
     for(i = 0; i < this.players.length; i++) {
       players.push(this.players[i].serialize())
@@ -436,32 +436,32 @@ acsg.Player = (function () {
   Player.prototype.move = function (direction) {
     var newPosition = this.position.slice()
     switch (direction) {
-      case 'up':
-        if (this.position[0] > 0) {
-          newPosition[0] -= 1
-        }
-        break
+    case 'up':
+      if (this.position[0] > 0) {
+        newPosition[0] -= 1
+      }
+      break
 
-      case 'down':
-        if (this.position[0] < this.world.rows - 1) {
-          newPosition[0] += 1
-        }
-        break
+    case 'down':
+      if (this.position[0] < this.world.rows - 1) {
+        newPosition[0] += 1
+      }
+      break
 
-      case 'left':
-        if (this.position[1] > 0) {
-          newPosition[1] -= 1
-        }
-        break
+    case 'left':
+      if (this.position[1] > 0) {
+        newPosition[1] -= 1
+      }
+      break
 
-      case 'right':
-        if (this.position[1] < this.world.columns - 1) {
-          newPosition[1] += 1
-        }
-        break
+    case 'right':
+      if (this.position[1] < this.world.columns - 1) {
+        newPosition[1] += 1
+      }
+      break
 
-      default:
-        console.log('Direction not recognized.')
+    default:
+      console.log('Direction not recognized.')
     }
     if (!this.world.hasPlayer(newPosition)) {
       this.position = newPosition
@@ -497,12 +497,12 @@ acsg.Player = (function () {
 acsg.Bot = (function () {
 
   var Bot = function (config) {
-      if (!(this instanceof Bot)) {
-          return new Bot(config)
-      }
+    if (!(this instanceof Bot)) {
+      return new Bot(config)
+    }
 
-      acsg.Player.call(this, config)
-      this.strategyName = this.world.botStrategy
+    acsg.Player.call(this, config)
+    this.strategyName = this.world.botStrategy
   }
 
   Bot.prototype = Object.create(acsg.Player.prototype)
@@ -662,10 +662,10 @@ acsg.Game = (function () {
     // to the random number generator, we can pregenerate a sequence of
     // time+bot pairs to execute later.
     var motion = {timestamps: [], botIds: []}
-        ,humanOffset = this.opts.INCLUDE_HUMAN ? 1 : 0
-        ,t = 0
-        ,waitTime
-        ,idx
+      ,humanOffset = this.opts.INCLUDE_HUMAN ? 1 : 0
+      ,t = 0
+      ,waitTime
+      ,idx
 
     // eslint-disable-next-line no-constant-condition
     while (true) {
@@ -714,8 +714,8 @@ acsg.Game = (function () {
     within a group that score in a 2:1 ratio will get payoff in a 4:1
     ratio, and therefore it pays to be a group's highest-scoring member. */
     var group_info, group_scores
-        ,ingroup_scores, intra_proportions, inter_proportions
-        ,p, i
+      ,ingroup_scores, intra_proportions, inter_proportions
+      ,p, i
     var player_groups = {}
     var total_payoff = 0
     var player = this.world.players[0]
@@ -807,7 +807,7 @@ acsg.Game = (function () {
   // Download the serialized game as a JSON file.
   Game.prototype.exportFullGameData = function () {
     var data = this.serializeFullState(),
-        filename = filenameFrom(data)
+      filename = filenameFrom(data)
 
     this.ui.exportFile(data, filename)
     return filename
