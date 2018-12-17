@@ -9,7 +9,10 @@ module.exports = {
     "rules": {
         "indent": [
             "error",
-            2
+            2,
+            {
+                "SwitchCase": 1,  // Indent "case" 1 level within "switch"
+            }
         ],
         "linebreak-style": [
             "error",
