@@ -1,10 +1,10 @@
-var util = require('util')
-var css = require('dom-css')
+/* eslint-env node,browser */
+/* globals require */
+
 var fs = require('fs')
 var grid = require('./pixels')
-var parse = require('parse-color')
 var position = require('mouse-position')
-var mousetrap = require('mousetrap')
+var Mousetrap = require('mousetrap')
 var gaussian = require('gaussian')
 var Rands = require('rands')
 var seedrandom = require('seedrandom')
@@ -43,6 +43,20 @@ function filenameFrom(data) {
   return experimentID + '-decompressed.json'
 }
 
+function sum(vector) {
+  return vector.reduce(( accumulator, currentValue ) => accumulator + currentValue, 0);
+}
+
+function softmax(vector, temperature=1){
+  /* The softmax activation function. */
+  var new_vector = vector.map(x => Math.pow(x, temperature));
+  if (sum(new_vector)) {
+      return new_vector.map(x => x / sum(new_vector));
+  } else {
+      return new_vector.map(_ => vector.length);
+  }
+}
+
 var acsg = {}  // Module namespace
 
 acsg.Browser = (function () {
@@ -56,6 +70,7 @@ acsg.Browser = (function () {
       var backgroundRngFunc = seedrandom(this.now())
       this.rBackground = new Rands(backgroundRngFunc)
       this.scoreboard = document.getElementById('score')
+      this.bonus = document.getElementById('dollars')
       this.clock = document.getElementById('clock')
       this.data = []
       this.background = []
@@ -87,8 +102,9 @@ acsg.Browser = (function () {
     return performance.now()
   }
 
-  Browser.prototype.updateScoreboard = function (score) {
-    this.scoreboard.innerHTML = score
+  Browser.prototype.updateScoreboard = function (ego) {
+    this.scoreboard.innerHTML = ego.score
+    this.bonus.innerHTML = ego.payoff.toFixed(2)
   }
 
   Browser.prototype.updateClock = function (t) {
@@ -97,7 +113,7 @@ acsg.Browser = (function () {
 
   Browser.prototype.draw = function (position, color) {
     // Covert x, y to linear index
-    index = position[0] * this.opts.COLUMNS + position[1]
+    var index = position[0] * this.opts.COLUMNS + position[1]
     this.data[index] = color
   }
   /**
@@ -118,7 +134,7 @@ acsg.Browser = (function () {
       var afterGameOver = (this.now() + this.opts.DURATION + 1) * 1000
       this.pixels.frame(function (){ callback(afterGameOver) })
     } else {
-      var self = this
+      self = this
       this.pixels.frame(function (){ callback(self.now()) })
     }
   }
@@ -163,6 +179,7 @@ acsg.Browser = (function () {
   }
 
   Browser.prototype._updateBackground = function () {
+    var rand
     for (var i = 0; i < this.data.length; i++) {
       rand = this.rBackground.uniform() * 0.02
       this.background[i] = [
@@ -229,7 +246,7 @@ acsg.CLI = (function () {
     // Noop
   }
 
-  CLI.prototype.updateScoreboard = function (score) {
+  CLI.prototype.updateScoreboard = function (ego) {
     // Noop
   }
 
@@ -277,7 +294,7 @@ acsg.World = (function () {
   }
 
   World.prototype.randomPosition = function () {
-    empty = false
+    var empty = false
     while (!empty) {
       position = [
         Math.floor(Math.random() * this.rows),
@@ -333,7 +350,7 @@ acsg.World = (function () {
   }
 
   World.prototype.state = function (t) {
-    s = {
+    var s = {
       'timestamp': t,
       'players': this.players,
       'food': this.food
@@ -345,14 +362,15 @@ acsg.World = (function () {
     var players = []
         ,food = []
         ,states = []
+        ,i
 
-    for(var i = 0; i < this.players.length; i++) {
+    for(i = 0; i < this.players.length; i++) {
       players.push(this.players[i].serialize())
     }
-    for(var i = 0; i < this.food.length; i++) {
+    for(i = 0; i < this.food.length; i++) {
       food.push(this.food[i].serialize())
     }
-    for(var i = 0; i < this.states.length; i++) {
+    for(i = 0; i < this.states.length; i++) {
       states.push(this.states[i].serialize())
     }
     return {
@@ -366,7 +384,7 @@ acsg.World = (function () {
 }())
 
 acsg.State = (function () {
-  State = function (config) {
+  var State = function (config) {
     if (!(this instanceof State)) {
       return new State(config)
     }
@@ -379,11 +397,12 @@ acsg.State = (function () {
   State.prototype.serialize = function () {
     var players = []
         ,food = []
+        ,i
 
-    for(var i = 0; i < this.players.length; i++) {
+    for(i = 0; i < this.players.length; i++) {
       players.push(this.players[i].serialize())
     }
-    for(var i = 0; i < this.food.length; i++) {
+    for(i = 0; i < this.food.length; i++) {
       food.push(this.food[i].serialize())
     }
 
@@ -399,7 +418,7 @@ acsg.State = (function () {
 
 acsg.Player = (function () {
 
-  Player = function (config) {
+  var Player = function (config) {
     if (!(this instanceof Player)) {
       return new Player(config)
     }
@@ -409,12 +428,13 @@ acsg.Player = (function () {
     this.teamIdx = Math.floor(Math.random() * teamColors.length)
     this.color = config.color || teamColors[this.teamIdx]
     this.score = config.score || 0
+    this.payoff = 0
 
     return this
   }
 
   Player.prototype.move = function (direction) {
-    newPosition = this.position.slice()
+    var newPosition = this.position.slice()
     switch (direction) {
       case 'up':
         if (this.position[0] > 0) {
@@ -449,7 +469,7 @@ acsg.Player = (function () {
     return direction
   }
 
-  Player.prototype.consume = function (t) {
+  Player.prototype.consume = function () {
     for (var i = 0; i < this.world.food.length; i++) {
       if (arraysEqual(this.position, this.world.food[i].position)) {
         this.world.food.splice(i, 1)
@@ -485,18 +505,18 @@ acsg.Bot = (function () {
       this.strategyName = this.world.botStrategy
   }
 
-  Bot.prototype = Object.create(Player.prototype)
+  Bot.prototype = Object.create(acsg.Player.prototype)
 
   Bot.prototype.move = function () {
     var direction = this.strategy[this.strategyName]()
-    Player.prototype.move.call(this, direction)
+    acsg.Player.prototype.move.call(this, direction)
     return direction
   }
 
   Bot.prototype.strategy = {}
 
   Bot.prototype.strategy.random = function () {
-    dirs = ['up', 'down', 'left', 'right']
+    var dirs = ['up', 'down', 'left', 'right']
     return dirs[Math.floor(Math.random() * dirs.length)]
   }
 
@@ -533,6 +553,7 @@ acsg.Food = (function () {
 acsg.Game = (function () {
 
   var Game = function (g) {
+    var opts, i
     if (!(this instanceof Game)) return new Game(g)
 
     // Check if this is a new game or a replay.
@@ -557,6 +578,9 @@ acsg.Game = (function () {
       this.opts.BLOCK_SIZE = opts.BLOCK_SIZE || 15
       this.opts.BLOCK_PADDING = opts.BLOCK_PADDING || 1
       this.opts.BOT_STRATEGY = opts.BOT_STRATEGY || 'random'
+      this.opts.INTERGROUP_COMPETITION = opts.INTERGROUP_COMPETITION || 1
+      this.opts.INTRAGROUP_COMPETITION = opts.INTRAGROUP_COMPETITION || 1
+      this.opts.DOLLARS_PER_POINT = opts.DOLLARS_PER_POINT || 0.02
       this.UUID = uuidv4()
       this.replay = false
       this.humanActions = []
@@ -588,11 +612,11 @@ acsg.Game = (function () {
     }
 
     // Create the bots.
-    for (var i = 0; i < this.numBots; i++) {
+    for (i = 0; i < this.numBots; i++) {
       this.world.spawnBot()
     }
 
-    for (var i = 0; i < this.opts.NUM_FOOD; i++) {
+    for (i = 0; i < this.opts.NUM_FOOD; i++) {
       this.world.spawnFood()
     }
   }
@@ -604,14 +628,19 @@ acsg.Game = (function () {
   }
 
   Game.prototype.serializeActions = function () {
-    return JSON.stringify({
+    var data = {
       'id': this.UUID,
       'data': {
         'actions': this.humanActions,
         'timestamps': this.humanActionTimestamps
       },
-      'config': opts
-    })
+      'config': this.opts
+    }
+    if (this.opts.INCLUDE_HUMAN && this.world.players && this.world.players[0]) {
+      data.data.score = this.world.players[0].score
+      data.data.payoff = this.world.players[0].payoff.toFixed(2)
+    }
+    return JSON.stringify(data)
   }
 
   Game.prototype.serializeFullState = function () {
@@ -638,6 +667,7 @@ acsg.Game = (function () {
         ,waitTime
         ,idx
 
+    // eslint-disable-next-line no-constant-condition
     while (true) {
       waitTime = this.eventRandomizer.exponential(this.opts.BOT_MOTION_RATE * this.numBots)
       if (t + waitTime > this.opts.DURATION) {
@@ -665,9 +695,60 @@ acsg.Game = (function () {
     }
   }
 
+  Game.prototype.computePayoffs = function () {
+    /* Compute payoffs from scores.
+
+    A player's payoff in the game can be expressed as the product of four
+    factors: the grand total number of points earned by all players, the
+    (softmax) proportion of the total points earned by the player's group,
+    the (softmax) proportion of the group's points earned by the player,
+    and the number of dollars per point.
+
+    Softmaxing the two proportions implements intragroup and intergroup
+    competition. When the parameters are 1, payoff is proportional to what
+    was scored and so there is no extrinsic competition. Increasing the
+    temperature introduces competition. For example, at 2, a pair of groups
+    that score in a 2:1 ratio will get payoff in a 4:1 ratio, and therefore
+    it pays to be in the highest-scoring group. The same logic applies to
+    intragroup competition: when the temperature is 2, a pair of players
+    within a group that score in a 2:1 ratio will get payoff in a 4:1
+    ratio, and therefore it pays to be a group's highest-scoring member. */
+    var group_info, group_scores
+        ,ingroup_scores, intra_proportions, inter_proportions
+        ,p, i
+    var player_groups = {}
+    var total_payoff = 0
+    var player = this.world.players[0]
+
+    for (i = 0; i < this.world.players.length; i++) {
+      p = this.world.players[i]
+      group_info = player_groups[p.teamIdx]
+      if (group_info === undefined) {
+        player_groups[p.teamIdx] = group_info = {players: [], scores: [], total: 0}
+      }
+      group_info.players.push(p)
+      group_info.scores.push(p.score)
+      group_info.total += p.score
+      total_payoff += p.score
+    }
+    group_scores = Object.values(player_groups).map(g => g.total)
+    group_info = player_groups[player.teamIdx]
+    ingroup_scores = group_info.scores
+    intra_proportions = softmax(
+      ingroup_scores, this.opts.INTRAGROUP_COMPETITION
+    )
+    player.payoff = total_payoff * intra_proportions[0]
+
+    inter_proportions = softmax(
+      group_scores, this.opts.INTERGROUP_COMPETITION
+    )
+    player.payoff *= inter_proportions[player.teamIdx]
+    player.payoff *= this.opts.DOLLARS_PER_POINT
+  }
+
   Game.prototype.run = function (callback) {
     var self = this
-    var callback = callback || function () { console.log('Game finished.') }
+    callback = callback || function () { console.log('Game finished.') }
     var start = this.ui.now()
     var botActions = []
     var lastBotActionIdx = -1
@@ -678,10 +759,12 @@ acsg.Game = (function () {
 
     this.world.recordStateAt(0)
     this.ui.eventStream(function (now) {
+      var nextBotT, nextHumanT, elapsedTime, currentBot
       elapsedTime = (now - start) / 1000
       self.unbufferHumanMoves(elapsedTime)
 
       // Execute all unexecuted actions up to elapsedTime.
+      // eslint-disable-next-line no-constant-condition
       while (true) {
         nextBotT = botMotion.timestamps[lastBotActionIdx + 1] || Infinity
         nextHumanT = self.humanActionTimestamps[lastHumanActionIdx + 1] || Infinity
@@ -701,14 +784,17 @@ acsg.Game = (function () {
           // Carry out human action.
           lastHumanActionIdx += 1
           ego.move(self.humanActions[lastHumanActionIdx])
-          self.ui.updateScoreboard(ego.consume())
+          ego.consume()
+          self.ui.updateScoreboard(ego)
           self.world.recordStateAt(nextHumanT)
         }
+        self.computePayoffs()
       }
 
       self.ui.updateGrid(self.world)
       self.ui.updateClock(self.opts.DURATION - elapsedTime)
 
+      self.computePayoffs()
       if (lastBotActionIdx >= botMotion.botIds.length - 1) {
         if (!self.gameOver) {
           self.gameOver = true

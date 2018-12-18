@@ -4,12 +4,15 @@ module.exports = {
     },
     "extends": "eslint:recommended",
     "parserOptions": {
-        "ecmaVersion": 5
+        "ecmaVersion": 6
     },
     "rules": {
         "indent": [
             "error",
-            4
+            2,
+            {
+                "SwitchCase": 1,  // Indent "case" 1 level within "switch"
+            }
         ],
         "linebreak-style": [
             "error",

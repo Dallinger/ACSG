@@ -1,4 +1,7 @@
-/*global require, process */
+/* eslint no-console: off */
+/* eslint-env node */
+/* global require, process */
+
 var acsg = require('./acsg');
 var fs = require('fs');
 
