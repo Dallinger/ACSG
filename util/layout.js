@@ -1,3 +1,5 @@
+/* eslint-env node */
+
 function layout (rows, columns, padding, size, aspect) {
   var grid = []
 

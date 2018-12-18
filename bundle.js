@@ -1,9 +1,9 @@
 (function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
 "use strict";
 
-/* eslint-env node,browser */
+/* eslint no-console: off */
 
-/* globals require */
+/* eslint-env node,browser */
 var fs = require('fs');
 
 var grid = require('./pixels');
@@ -73,7 +73,7 @@ function softmax(vector) {
       return x / sum(new_vector);
     });
   } else {
-    return new_vector.map(function (_) {
+    return new_vector.map(function () {
       return vector.length;
     });
   }
@@ -125,12 +125,19 @@ acsg.Browser = function () {
   };
 
   Browser.prototype.updateScoreboard = function (ego) {
-    this.scoreboard.innerHTML = ego.score;
-    this.bonus.innerHTML = ego.payoff.toFixed(2);
+    if (this.scoreboard !== null) {
+      this.scoreboard.innerHTML = ego.score;
+    }
+
+    if (this.bonus !== null) {
+      this.bonus.innerHTML = ego.payoff.toFixed(2);
+    }
   };
 
   Browser.prototype.updateClock = function (t) {
-    this.clock.innerHTML = t > 0 ? t.toFixed(1) : '0.0';
+    if (this.clock !== null) {
+      this.clock.innerHTML = t > 0 ? t.toFixed(1) : '0.0';
+    }
   };
 
   Browser.prototype.draw = function (position, color) {
@@ -254,19 +261,19 @@ acsg.CLI = function () {
     return this._performance.performance.now();
   };
 
-  CLI.prototype.draw = function (position, color) {// Noop
+  CLI.prototype.draw = function () {// Noop
   };
 
-  CLI.prototype.updateClock = function (t) {// Noop
+  CLI.prototype.updateClock = function () {// Noop
   };
 
-  CLI.prototype.updateGrid = function (world) {// Noop
+  CLI.prototype.updateGrid = function () {// Noop
   };
 
-  CLI.prototype.updateMask = function (ego) {// Noop
+  CLI.prototype.updateMask = function () {// Noop
   };
 
-  CLI.prototype.updateScoreboard = function (ego) {// Noop
+  CLI.prototype.updateScoreboard = function () {// Noop
   };
 
   CLI.prototype.eventStream = function (callback) {
@@ -869,6 +876,9 @@ module.exports = acsg;
 },{"./pixels":65,"fs":4,"gaussian":7,"mouse-position":13,"mousetrap":14,"perf_hooks":4,"rands":20,"seedrandom":54,"uuid/v4":64}],2:[function(require,module,exports){
 "use strict";
 
+/* eslint no-console: off */
+
+/* global require */
 var acsg = require('./acsg');
 
 var game = acsg.Game({
@@ -14203,6 +14213,7 @@ module.exports = v4;
 },{"./lib/bytesToUuid":62,"./lib/rng":63}],65:[function(require,module,exports){
 "use strict";
 
+/* eslint-env node */
 var parse = require('parse-color');
 
 var isnumber = require('is-number');
@@ -14292,6 +14303,7 @@ module.exports = Pixels;
 },{"./util/convert":66,"./util/layout":67,"is-array":8,"is-number":10,"is-string":11,"parse-color":15,"regl":53}],66:[function(require,module,exports){
 "use strict";
 
+/* eslint-env node */
 var flatten = require('flatten');
 
 var isarray = require('is-array');
@@ -14327,6 +14339,7 @@ module.exports = convert;
 },{"flatten":6,"is-array":8,"is-number":10,"is-string":11,"parse-color":15}],67:[function(require,module,exports){
 "use strict";
 
+/* eslint-env node */
 function layout(rows, columns, padding, size, aspect) {
   var grid = [];
 
