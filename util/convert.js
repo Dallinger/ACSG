@@ -1,3 +1,5 @@
+/* eslint-env node */
+
 var flatten = require('flatten')
 var isarray = require('is-array')
 var isnumber = require('is-number')
